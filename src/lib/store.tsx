@@ -52,7 +52,11 @@ export type Goals = {
   /** Target body weight in kg. */
   targetWeight: number | null;
 };
+export type Profile = {
+  heightCm: number | null;
+};
 export type Data = {
+  profile: Profile;
   foods: Food[];
   workouts: Workout[];
   savedFoods: SavedFood[];
@@ -68,6 +72,7 @@ export type Data = {
 };
 
 const EMPTY: Data = {
+  profile: { heightCm: null },
   foods: [],
   workouts: [],
   savedFoods: [],
@@ -101,6 +106,7 @@ type Store = {
   removeCategory: (name: string) => void;
   setWeight: (date: DateKey, kg: number | null) => void;
   setGoals: (goals: Partial<Goals>) => void;
+  setProfile: (profile: Partial<Profile>) => void;
   clearAll: () => void;
 };
 
@@ -118,6 +124,7 @@ function normalize(saved: Partial<Data>): Data {
     workouts: (saved.workouts ?? []).map(migrateWorkout),
     savedFoods: (saved.savedFoods ?? []).map((f) => ({ ...f, category: f.category ?? null })),
     goals: { ...EMPTY.goals, ...saved.goals },
+    profile: { ...EMPTY.profile, ...saved.profile },
   };
 }
 
@@ -233,6 +240,7 @@ export function StoreProvider({ children, onReady }: { children: ReactNode; onRe
         return { ...d, weights };
       }),
     setGoals: (goals) => update((d) => ({ ...d, goals: { ...d.goals, ...goals } })),
+    setProfile: (profile) => update((d) => ({ ...d, profile: { ...d.profile, ...profile } })),
     clearAll: () => {
       setData(EMPTY);
       setResetCount((n) => n + 1);

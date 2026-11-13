@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ProfileButton } from '@/components/profile-button';
 import { addDays, useToday, weekStart } from '@/lib/dates';
 import { sumKcal, useStore } from '@/lib/store';
 import { useTheme } from '@/lib/theme';
@@ -31,6 +32,9 @@ export default function ChooseScreen() {
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: t.background }]}>
+      <View style={styles.topBar}>
+        <ProfileButton size={32} />
+      </View>
       <View style={styles.header}>
         <Text style={[styles.title, { color: t.text }]}>Calfs & Cals</Text>
         <Text style={[styles.question, { color: t.textSecondary }]}>What do you want to do?</Text>
@@ -92,6 +96,7 @@ function Choice({
 
 const styles = StyleSheet.create({
   screen: { flex: 1, padding: 24, gap: 32, justifyContent: 'center' },
+  topBar: { position: 'absolute', top: 8, right: 8 },
   header: { gap: 6 },
   title: { fontSize: 34, fontWeight: '800' },
   question: { fontSize: 17 },
