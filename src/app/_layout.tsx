@@ -22,7 +22,9 @@ export default function RootLayout() {
       <StatusBar style="auto" />
       <StoreProvider onReady={() => SplashScreen.hideAsync()}>
         <Stack screenOptions={{ headerBackTitle: 'Back' }}>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="train" options={{ headerShown: false }} />
+          <Stack.Screen name="calories" options={{ headerShown: false }} />
           <Stack.Screen name="day/[date]" />
           <Stack.Screen name="scan" options={{ title: 'Scan food', presentation: 'modal' }} />
         </Stack>

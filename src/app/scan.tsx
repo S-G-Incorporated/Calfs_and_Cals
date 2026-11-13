@@ -12,10 +12,11 @@ import {
   View,
 } from 'react-native';
 
-import { Button, Card, Field, Muted } from '@/components/ui';
+import { CategoryPicker } from '@/components/category-picker';
+import { Button, Card, Field, Muted, Toggle } from '@/components/ui';
 import { type DateKey, isDateKey, todayKey } from '@/lib/dates';
 import { type LookupResult, lookupBarcode, portion, type Product } from '@/lib/food-lookup';
-import { parseNumber, useStore } from '@/lib/store';
+import { findSavedFood, parseNumber, useStore } from '@/lib/store';
 import { useTheme } from '@/lib/theme';
 
 /** Scan a food barcode, type the grams eaten, and log the calories and macros for that portion. */
@@ -23,19 +24,23 @@ export default function ScanScreen() {
   const t = useTheme();
   const params = useLocalSearchParams<{ date: string }>();
   const date = isDateKey(params.date) ? params.date : todayKey();
+  const { data } = useStore();
 
   const [permission, requestPermission] = useCameraPermissions();
   const [barcode, setBarcode] = useState<string | null>(null);
   const [result, setResult] = useState<LookupResult | null>(null);
 
+  // A barcode the user saved before is used straight away, with no network lookup.
+  const saved = barcode === null ? undefined : findSavedFood(data.savedFoods, { barcode });
+
   useEffect(() => {
-    if (barcode === null) return;
+    if (barcode === null || saved) return;
     const controller = new AbortController();
     lookupBarcode(barcode, controller.signal).then((r) => {
       if (!controller.signal.aborted) setResult(r);
     });
     return () => controller.abort();
-  }, [barcode]);
+  }, [barcode, saved]);
 
   const rescan = () => {
     setBarcode(null);
@@ -77,6 +82,10 @@ export default function ScanScreen() {
     );
   }
 
+  if (saved) {
+    return <PortionForm product={{ ...saved, barcode }} date={date} onRescan={rescan} />;
+  }
+
   if (result === null) {
     return (
       <View style={styles.center}>
@@ -112,8 +121,12 @@ function PortionForm({
   onRescan: () => void;
 }) {
   const t = useTheme();
-  const { addFood } = useStore();
+  const { data, addFood, saveFood } = useStore();
   const [gramsText, setGramsText] = useState('');
+  const [save, setSave] = useState(false);
+  const [category, setCategory] = useState<string | null>(null);
+
+  const alreadySaved = findSavedFood(data.savedFoods, { barcode: product.barcode }) !== undefined;
 
   const grams = parseNumber(gramsText);
   const eaten = portion(product, grams ?? 0);
@@ -122,6 +135,10 @@ function PortionForm({
     if (grams === null) return;
     const { kcal, ...macros } = eaten;
     addFood(date, kcal, product.name, macros);
+    if (save && !alreadySaved) {
+      const { name, barcode, kcal: per100, protein, fat, carbs } = product;
+      saveFood({ name, category, barcode, kcal: per100, protein, fat, carbs });
+    }
     router.back();
   };
 
@@ -163,6 +180,14 @@ function PortionForm({
             <Total label="Fat" value={amount(eaten.fat)} color={t.text} />
             <Total label="Carbs" value={amount(eaten.carbs)} color={t.text} />
           </View>
+          {alreadySaved ? (
+            <Muted>This product is in your saved foods.</Muted>
+          ) : (
+            <>
+              <Toggle label="Save to my foods" value={save} color={t.calories} onChange={setSave} />
+              {save ? <CategoryPicker value={category} onChange={setCategory} /> : null}
+            </>
+          )}
         </Card>
 
         <Button label="Scan another barcode" color={t.textSecondary} onPress={onRescan} />

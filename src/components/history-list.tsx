@@ -3,12 +3,15 @@ import { router } from 'expo-router';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { addDays, type DateKey, formatRelative, useToday } from '@/lib/dates';
-import { useStore } from '@/lib/store';
+import type { Mode } from '@/lib/mode';
+import { useStore, type Workout } from '@/lib/store';
 import { useTheme } from '@/lib/theme';
+import { describeDay } from '@/lib/workouts';
 
-type Day = { date: DateKey; kcal: number; workouts: number; minutes: number; weight: number | null };
+type Day = { date: DateKey; kcal: number; workouts: Workout[]; weight: number | null };
 
-export default function HistoryScreen() {
+/** One row per day, newest first, showing only the data that belongs to `mode`. */
+export function HistoryList({ mode }: { mode: Mode }) {
   const t = useTheme();
   const today = useToday();
   const { data } = useStore();
@@ -17,18 +20,17 @@ export default function HistoryScreen() {
   const day = (date: DateKey) => {
     let d = byDate.get(date);
     if (!d) {
-      d = { date, kcal: 0, workouts: 0, minutes: 0, weight: data.weights[date] ?? null };
+      d = { date, kcal: 0, workouts: [], weight: null };
       byDate.set(date, d);
     }
     return d;
   };
-  for (const f of data.foods) day(f.date).kcal += f.kcal;
-  for (const w of data.workouts) {
-    const d = day(w.date);
-    d.workouts += 1;
-    d.minutes += w.minutes;
+  if (mode === 'train') {
+    for (const w of data.workouts) day(w.date).workouts.push(w);
+  } else {
+    for (const f of data.foods) day(f.date).kcal += f.kcal;
+    for (const [date, kg] of Object.entries(data.weights)) day(date).weight = kg;
   }
-  for (const date of Object.keys(data.weights)) day(date);
 
   // Every day from today back to the first logged day (at least two weeks),
   // so missed days can be opened and filled in.
@@ -45,11 +47,14 @@ export default function HistoryScreen() {
       contentContainerStyle={styles.list}
       ItemSeparatorComponent={() => <View style={styles.gap} />}
       renderItem={({ item }) => {
-        const empty = item.kcal === 0 && item.workouts === 0 && item.weight === null;
+        const training = describeDay(item.workouts);
+        const empty = item.kcal === 0 && training === null && item.weight === null;
         return (
           <Pressable
             accessibilityRole="button"
-            onPress={() => router.push({ pathname: '/day/[date]', params: { date: item.date } })}
+            onPress={() =>
+              router.push({ pathname: '/day/[date]', params: { date: item.date, mode } })
+            }
             style={({ pressed }) => [
               styles.row,
               { backgroundColor: t.card, opacity: pressed ? 0.6 : 1 },
@@ -67,9 +72,7 @@ export default function HistoryScreen() {
                       text={`${item.kcal.toLocaleString()} kcal`}
                     />
                   ) : null}
-                  {item.workouts > 0 ? (
-                    <Stat icon="barbell" color={t.workout} text={`${item.minutes} min`} />
-                  ) : null}
+                  {training !== null ? <Stat icon="barbell" color={t.workout} text={training} /> : null}
                   {item.weight !== null ? (
                     <Stat icon="scale" color={t.weight} text={`${item.weight} kg`} />
                   ) : null}

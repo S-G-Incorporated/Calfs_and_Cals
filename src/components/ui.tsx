@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import type { ReactNode } from 'react';
 import {
   Pressable,
@@ -102,6 +103,74 @@ export function Chip({
   );
 }
 
+/** A labelled checkbox row. */
+export function Toggle({
+  label,
+  value,
+  color,
+  onChange,
+}: {
+  label: string;
+  value: boolean;
+  color: string;
+  onChange: (value: boolean) => void;
+}) {
+  const t = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: value }}
+      onPress={() => onChange(!value)}
+      hitSlop={6}
+      style={({ pressed }) => [styles.toggle, { opacity: pressed ? 0.6 : 1 }]}>
+      <Ionicons
+        name={value ? 'checkbox' : 'square-outline'}
+        size={24}
+        color={value ? color : t.textSecondary}
+      />
+      <Text style={[styles.toggleLabel, { color: t.text }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+/** One logged item (a food or a workout) with a remove button. */
+export function Entry({
+  icon,
+  color,
+  label,
+  detail,
+  value,
+  onRemove,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  label: string;
+  detail?: string;
+  value: string;
+  onRemove: () => void;
+}) {
+  const t = useTheme();
+  return (
+    <View style={styles.entry}>
+      <Ionicons name={icon} size={18} color={color} />
+      <View style={styles.entryText}>
+        <Text style={[styles.entryLabel, { color: t.text }]} numberOfLines={1}>
+          {label}
+        </Text>
+        {detail ? <Muted>{detail}</Muted> : null}
+      </View>
+      <Text style={[styles.entryValue, { color: t.textSecondary }]}>{value}</Text>
+      <Pressable
+        onPress={onRemove}
+        hitSlop={10}
+        accessibilityRole="button"
+        accessibilityLabel={`Remove ${label}`}>
+        <Ionicons name="close-circle" size={22} color={t.textSecondary} />
+      </Pressable>
+    </View>
+  );
+}
+
 export function ProgressBar({ fraction, color }: { fraction: number; color: string }) {
   const t = useTheme();
   const width: ViewStyle['width'] = `${Math.max(0, Math.min(1, fraction)) * 100}%`;
@@ -136,6 +205,12 @@ const styles = StyleSheet.create({
   },
   chipLabel: { fontSize: 15, fontWeight: '600' },
   chipDetail: { fontSize: 13 },
+  toggle: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start' },
+  toggleLabel: { fontSize: 15 },
+  entry: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 32 },
+  entryText: { flex: 1 },
+  entryLabel: { fontSize: 16 },
+  entryValue: { fontSize: 15, fontVariant: ['tabular-nums'] },
   track: { height: 10, borderRadius: 5, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: 5 },
 });
