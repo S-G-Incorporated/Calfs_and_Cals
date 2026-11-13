@@ -1,18 +1,33 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
+import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ProfileButton } from '@/components/profile-button';
 import { addDays, useToday, weekStart } from '@/lib/dates';
 import { sumKcal, useStore } from '@/lib/store';
 import { useTheme } from '@/lib/theme';
 import { trainingDays } from '@/lib/workouts';
+
+/**
+ * True once the app has passed the launch screen, so a configured start page only skips it on
+ * startup and not every time the user comes back here on purpose.
+ */
+let launched = false;
 
 /** First screen on launch: pick whether to train or track calories. */
 export default function ChooseScreen() {
   const t = useTheme();
   const today = useToday();
   const { data } = useStore();
+
+  const startPage = data.profile.startPage;
+  const skip = startPage !== null && !launched;
+  useEffect(() => {
+    launched = true;
+  }, []);
+  if (skip) return <Redirect href={startPage === 'train' ? '/train' : '/calories'} />;
 
   const monday = weekStart(today);
   const weekDays = trainingDays(data.workouts, monday, addDays(monday, 6));
@@ -31,6 +46,9 @@ export default function ChooseScreen() {
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: t.background }]}>
+      <View style={styles.topBar}>
+        <ProfileButton size={32} />
+      </View>
       <View style={styles.header}>
         <Text style={[styles.title, { color: t.text }]}>Calfs & Cals</Text>
         <Text style={[styles.question, { color: t.textSecondary }]}>What do you want to do?</Text>
@@ -92,6 +110,7 @@ function Choice({
 
 const styles = StyleSheet.create({
   screen: { flex: 1, padding: 24, gap: 32, justifyContent: 'center' },
+  topBar: { position: 'absolute', top: 8, right: 8 },
   header: { gap: 6 },
   title: { fontSize: 34, fontWeight: '800' },
   question: { fontSize: 17 },

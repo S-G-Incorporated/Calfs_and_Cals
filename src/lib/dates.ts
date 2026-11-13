@@ -32,6 +32,12 @@ export function addDays(key: DateKey, n: number): DateKey {
   return toKey(d);
 }
 
+/** Whole days from `from` to `to`; negative when `to` is earlier. */
+export function daysBetween(from: DateKey, to: DateKey): number {
+  const ms = fromKey(to).getTime() - fromKey(from).getTime();
+  return Math.round(ms / 86_400_000);
+}
+
 /** Monday of the week containing `key`. */
 export function weekStart(key: DateKey): DateKey {
   const d = fromKey(key);

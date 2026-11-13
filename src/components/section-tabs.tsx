@@ -7,6 +7,8 @@ import { formatLong, useToday } from '@/lib/dates';
 import { MODE_LABEL, type Mode, modeColor } from '@/lib/mode';
 import { useTheme } from '@/lib/theme';
 
+import { ProfileButton } from './profile-button';
+
 type IconName = keyof typeof Ionicons.glyphMap;
 
 const icon = (name: IconName) =>
@@ -40,6 +42,7 @@ export function SectionTabs({ mode }: { mode: Mode }) {
       screenOptions={{
         tabBarActiveTintColor: modeColor(mode, t),
         headerLeft: () => <SwitchButton />,
+        headerRight: () => <ProfileButton />,
       }}>
       <Tabs.Screen
         name="index"
