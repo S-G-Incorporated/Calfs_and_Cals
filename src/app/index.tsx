@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
+import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,11 +10,24 @@ import { sumKcal, useStore } from '@/lib/store';
 import { useTheme } from '@/lib/theme';
 import { trainingDays } from '@/lib/workouts';
 
+/**
+ * True once the app has passed the launch screen, so a configured start page only skips it on
+ * startup and not every time the user comes back here on purpose.
+ */
+let launched = false;
+
 /** First screen on launch: pick whether to train or track calories. */
 export default function ChooseScreen() {
   const t = useTheme();
   const today = useToday();
   const { data } = useStore();
+
+  const startPage = data.profile.startPage;
+  const skip = startPage !== null && !launched;
+  useEffect(() => {
+    launched = true;
+  }, []);
+  if (skip) return <Redirect href={startPage === 'train' ? '/train' : '/calories'} />;
 
   const monday = weekStart(today);
   const weekDays = trainingDays(data.workouts, monday, addDays(monday, 6));

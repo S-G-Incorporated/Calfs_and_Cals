@@ -26,6 +26,7 @@ export default function RootLayout() {
           <Stack.Screen name="train" options={{ headerShown: false }} />
           <Stack.Screen name="calories" options={{ headerShown: false }} />
           <Stack.Screen name="profile" options={{ title: 'Profile' }} />
+          <Stack.Screen name="target" options={{ title: 'Target weight' }} />
           <Stack.Screen name="day/[date]" />
           <Stack.Screen name="scan" options={{ title: 'Scan food', presentation: 'modal' }} />
         </Stack>
