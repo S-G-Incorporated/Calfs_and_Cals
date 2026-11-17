@@ -76,3 +76,25 @@ export function useToday(): DateKey {
   }, []);
   return today;
 }
+
+/** "18:05" for a timestamp, in local time. */
+export function formatTime(ms: number): string {
+  const d = new Date(ms);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+/** Parses "18:05", "18.05" or "1805" into minutes after midnight, or null if it isn't a time. */
+export function parseTime(text: string): number | null {
+  const m = /^(\d{1,2})[:.]?(\d{2})$/.exec(text.trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  return h < 24 && min < 60 ? h * 60 + min : null;
+}
+
+/** Timestamp for a day plus minutes after midnight, in local time. */
+export function atTime(key: DateKey, minutes: number): number {
+  const d = fromKey(key);
+  d.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
+  return d.getTime();
+}

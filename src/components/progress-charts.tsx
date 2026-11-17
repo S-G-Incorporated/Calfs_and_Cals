@@ -9,6 +9,7 @@ import { trainingDays } from '@/lib/workouts';
 
 import { BarChart, LineChart } from './charts';
 import { Card, Chip, Muted } from './ui';
+import { WorkoutLog } from './workout-log';
 
 type Range = { days: number; weeks: number; label: string };
 
@@ -28,6 +29,7 @@ export function ProgressCharts({ mode }: { mode: Mode }) {
   const t = useTheme();
   const ranges = mode === 'train' ? WEEK_RANGES : DAY_RANGES;
   const [range, setRange] = useState(ranges[1]);
+  const today = useToday();
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -43,7 +45,10 @@ export function ProgressCharts({ mode }: { mode: Mode }) {
         ))}
       </View>
       {mode === 'train' ? (
-        <WorkoutsCard weekCount={range.weeks} />
+        <>
+          <WorkoutsCard weekCount={range.weeks} />
+          <WorkoutLog from={addDays(weekStart(today), -7 * (range.weeks - 1))} />
+        </>
       ) : (
         <>
           <CaloriesCard dayCount={range.days} />

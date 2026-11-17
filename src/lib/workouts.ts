@@ -1,5 +1,5 @@
 import type { DateKey } from './dates';
-import type { Cardio, StrengthSet, Workout } from './store';
+import type { Cardio, RoutineExercise, StrengthSet, Workout } from './store';
 
 /** Strength exercises offered out of the box. The user can add their own. */
 export const EXERCISES = [
@@ -81,4 +81,18 @@ export function describeDay(workouts: Workout[]): string | null {
     cardio.length > 0 && km === 0 && minutes === 0 ? `${cardio.length} cardio` : null,
   ].filter(Boolean);
   return parts.length ? parts.join(' · ') : null;
+}
+
+/** The exercise or activity name of a routine item. */
+export function routineItemName(e: RoutineExercise): string {
+  return e.kind === 'strength' ? e.exercise : e.activity;
+}
+
+/** "1:05:09" or "12:34" for a duration in seconds. */
+export function formatDuration(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 }

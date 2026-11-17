@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, type ReactNode, use, useEffect, useState } from 'react';
 
 import type { ActivityLevel, Sex } from './body';
-import type { DateKey } from './dates';
+import { type DateKey, toKey } from './dates';
 import type { Nutrition } from './food-lookup';
 import { FOOD_CATEGORIES } from './foods';
 import type { Mode } from './mode';
@@ -24,6 +24,8 @@ export type StrengthSet = {
   exercise: string;
   reps: number;
   kg: number;
+  /** The workout session this set was logged in, if it came from one. */
+  sessionId?: string;
 };
 /** A cardio session. Distance and time are each optional, but at least one is recorded. */
 export type Cardio = {
@@ -34,8 +36,59 @@ export type Cardio = {
   activity: string;
   minutes: number | null;
   km: number | null;
+  sessionId?: string;
 };
 export type Workout = StrengthSet | Cardio;
+
+/** A strength exercise in a routine with the planned sets, reps and weight. Each number is optional. */
+export type RoutineStrength = {
+  id: string;
+  kind: 'strength';
+  exercise: string;
+  sets: number | null;
+  reps: number | null;
+  kg: number | null;
+};
+/** A cardio activity in a routine with an optional planned distance and time. */
+export type RoutineCardio = {
+  id: string;
+  kind: 'cardio';
+  activity: string;
+  km: number | null;
+  minutes: number | null;
+};
+export type RoutineExercise = RoutineStrength | RoutineCardio;
+
+/** A set or cardio session as entered, before it gets an id, date and time. */
+export type WorkoutEntry =
+  | Omit<StrengthSet, 'id' | 'date' | 'at' | 'sessionId'>
+  | Omit<Cardio, 'id' | 'date' | 'at' | 'sessionId'>;
+
+/**
+ * A finished workout started from a routine. Its sets and cardio are stored in `workouts`
+ * with this session's id.
+ */
+export type Session = {
+  id: string;
+  /** The day it was finished; always matches `finishedAt`. */
+  date: DateKey;
+  routineId: string;
+  routineName: string;
+  /** When the workout was finished. */
+  finishedAt: number;
+  /** Training time in seconds. */
+  seconds: number;
+};
+/** What can be set when finishing or editing a session. */
+export type SessionInput = Pick<Session, 'routineId' | 'routineName' | 'finishedAt' | 'seconds'>;
+/** A saved workout plan: a name and an ordered list of exercises. */
+export type Routine = {
+  id: string;
+  name: string;
+  exercises: RoutineExercise[];
+  /** When the routine was created or last edited; the list shows the newest first. */
+  updatedAt: number;
+};
 
 /** A food the user chose to keep, with values per 100 g so any portion can be logged later. */
 export type SavedFood = Nutrition & {
@@ -70,6 +123,8 @@ export type Data = {
   profile: Profile;
   foods: Food[];
   workouts: Workout[];
+  routines: Routine[];
+  sessions: Session[];
   savedFoods: SavedFood[];
   /** Food categories the user added to the built-in list. */
   customCategories: string[];
@@ -94,6 +149,8 @@ const EMPTY: Data = {
   },
   foods: [],
   workouts: [],
+  routines: [],
+  sessions: [],
   savedFoods: [],
   customCategories: [],
   customExercises: [],
@@ -111,6 +168,15 @@ type Store = {
   addSet: (date: DateKey, exercise: string, reps: number, kg: number) => void;
   addCardio: (date: DateKey, activity: string, minutes: number | null, km: number | null) => void;
   removeWorkout: (id: string) => void;
+  /** Creates a routine, or replaces the one with the same id, and marks it as just edited. */
+  saveRoutine: (routine: { id?: string; name: string; exercises: RoutineExercise[] }) => void;
+  removeRoutine: (id: string) => void;
+  /** Logs a finished workout: its completed sets and cardio, plus the session itself. */
+  finishWorkout: (session: SessionInput, entries: WorkoutEntry[]) => void;
+  /** Changes a finished workout and replaces all of its logged sets and cardio. */
+  updateSession: (id: string, session: SessionInput, entries: WorkoutEntry[]) => void;
+  /** Deletes a finished workout together with everything logged in it. */
+  removeSession: (id: string) => void;
   /** Adds a strength exercise to the list; returns false if the name is taken. */
   addExercise: (name: string) => boolean;
   removeExercise: (name: string) => void;
@@ -131,8 +197,23 @@ type Store = {
 
 const StoreContext = createContext<Store | null>(null);
 
-function newId(): string {
+export function newId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function toSession(id: string, input: SessionInput): Session {
+  return { ...input, id, date: toKey(new Date(input.finishedAt)) };
+}
+
+/** The session's entries as stored workouts, dated by when the session finished. */
+function toWorkouts(session: Session, entries: WorkoutEntry[]): Workout[] {
+  return entries.map((e) => ({
+    ...e,
+    id: newId(),
+    date: session.date,
+    at: session.finishedAt,
+    sessionId: session.id,
+  }));
 }
 
 /** Fills in fields added since the data was saved and upgrades old entry shapes. */
@@ -141,6 +222,16 @@ function normalize(saved: Partial<Data>): Data {
     ...EMPTY,
     ...saved,
     workouts: (saved.workouts ?? []).map(migrateWorkout),
+    // Routines saved before cardio could be added only held strength exercises.
+    routines: (saved.routines ?? []).map((r) => ({
+      ...r,
+      exercises: r.exercises.map((e) => ({ ...e, kind: e.kind ?? 'strength' }) as RoutineExercise),
+    })),
+    // The first sessions stored when they started instead of when they finished.
+    sessions: (saved.sessions ?? []).map((s) => {
+      const old = s as Session & { startedAt?: number };
+      return { ...s, finishedAt: s.finishedAt ?? (old.startedAt ?? 0) + s.seconds * 1000 };
+    }),
     savedFoods: (saved.savedFoods ?? []).map((f) => ({ ...f, category: f.category ?? null })),
     goals: { ...EMPTY.goals, ...saved.goals },
     profile: { ...EMPTY.profile, ...saved.profile },
@@ -195,6 +286,39 @@ export function StoreProvider({ children, onReady }: { children: ReactNode; onRe
       })),
     removeWorkout: (id) =>
       update((d) => ({ ...d, workouts: d.workouts.filter((w) => w.id !== id) })),
+    saveRoutine: ({ id, name, exercises }) => {
+      const routine: Routine = { id: id ?? newId(), name: name.trim(), exercises, updatedAt: Date.now() };
+      update((d) => ({
+        ...d,
+        routines: [...d.routines.filter((r) => r.id !== routine.id), routine],
+      }));
+    },
+    removeRoutine: (id) =>
+      update((d) => ({ ...d, routines: d.routines.filter((r) => r.id !== id) })),
+    finishWorkout: (session, entries) =>
+      update((d) => {
+        const saved = toSession(newId(), session);
+        return {
+          ...d,
+          workouts: [...d.workouts, ...toWorkouts(saved, entries)],
+          sessions: [...d.sessions, saved],
+        };
+      }),
+    updateSession: (id, session, entries) =>
+      update((d) => {
+        const saved = toSession(id, session);
+        return {
+          ...d,
+          workouts: [...d.workouts.filter((w) => w.sessionId !== id), ...toWorkouts(saved, entries)],
+          sessions: d.sessions.map((s) => (s.id === id ? saved : s)),
+        };
+      }),
+    removeSession: (id) =>
+      update((d) => ({
+        ...d,
+        workouts: d.workouts.filter((w) => w.sessionId !== id),
+        sessions: d.sessions.filter((s) => s.id !== id),
+      })),
     addExercise: (name) => {
       const trimmed = name.trim();
       if (trimmed === '' || exerciseExists(data, trimmed)) return false;

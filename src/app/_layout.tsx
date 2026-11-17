@@ -28,6 +28,9 @@ export default function RootLayout() {
           <Stack.Screen name="profile" options={{ title: 'Profile' }} />
           <Stack.Screen name="target" options={{ title: 'Target weight' }} />
           <Stack.Screen name="day/[date]" />
+          <Stack.Screen name="routine/[id]" options={{ title: 'Routine' }} />
+          <Stack.Screen name="workout/[id]" options={{ title: 'Workout' }} />
+          <Stack.Screen name="session/[id]" options={{ title: 'Edit workout' }} />
           <Stack.Screen name="scan" options={{ title: 'Scan food', presentation: 'modal' }} />
         </Stack>
       </StoreProvider>

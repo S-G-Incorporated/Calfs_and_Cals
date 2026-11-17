@@ -46,11 +46,11 @@ export function SectionTabs({ mode }: { mode: Mode }) {
       }}>
       <Tabs.Screen
         name="index"
-        options={{
-          title: 'Today',
-          headerTitle: `${label} · ${formatLong(today)}`,
-          tabBarIcon: icon('today'),
-        }}
+        options={
+          mode === 'train'
+            ? { title: 'Routines', headerTitle: 'Routines', tabBarIcon: icon('list') }
+            : { title: 'Today', headerTitle: `${label} · ${formatLong(today)}`, tabBarIcon: icon('today') }
+        }
       />
       {mode === 'calories' ? (
         <Tabs.Screen
@@ -58,10 +58,12 @@ export function SectionTabs({ mode }: { mode: Mode }) {
           options={{ title: 'Foods', headerTitle: 'Saved foods', tabBarIcon: icon('bookmark') }}
         />
       ) : null}
-      <Tabs.Screen
-        name="history"
-        options={{ title: 'History', headerTitle: `${label} history`, tabBarIcon: icon('calendar') }}
-      />
+      {mode === 'calories' ? (
+        <Tabs.Screen
+          name="history"
+          options={{ title: 'History', headerTitle: `${label} history`, tabBarIcon: icon('calendar') }}
+        />
+      ) : null}
       <Tabs.Screen
         name="progress"
         options={{ title: 'Progress', headerTitle: `${label} progress`, tabBarIcon: icon('stats-chart') }}
