@@ -65,11 +65,11 @@ export type CaloriePlan = {
   dailyChange: number;
   /** Calories to eat per day to reach the target in time. */
   dailyCalories: number;
-  /** Set when the plan is too aggressive, with the fewest weeks that would keep it sensible. */
-  warning: { reason: 'belowMinimum' | 'tooFast'; suggestedWeeks: number } | null;
+  /** Set when the plan is too aggressive, with the fewest days from today that keep it sensible. */
+  warning: { reason: 'belowMinimum' | 'tooFast'; suggestedDays: number } | null;
 };
 
-/** Daily calorie budget that moves from `kg` to `targetKg` in `weeks`. */
+/** Daily calorie budget that moves from `kg` to `targetKg` in `days`. */
 export function caloriePlan(
   sex: Sex,
   kg: number,
@@ -77,23 +77,28 @@ export function caloriePlan(
   age: number,
   activity: ActivityLevel,
   targetKg: number,
-  weeks: number,
+  days: number,
 ): CaloriePlan {
   const maintenance = maintenanceCalories(sex, kg, cm, age, activity);
   const kgToChange = kg - targetKg;
-  const kgPerWeek = kgToChange / weeks;
-  const dailyChange = Math.round((kgToChange * KCAL_PER_KG) / (weeks * 7));
+  const kgPerWeek = (kgToChange / days) * 7;
+  const dailyChange = Math.round((kgToChange * KCAL_PER_KG) / days);
   const dailyCalories = maintenance - dailyChange;
 
-  let warning: CaloriePlan['warning'] = null;
+  // The suggested number of days satisfies both rules, so following it clears the warning.
   const minimum = minimumCalories(sex);
   const totalKcal = Math.abs(kgToChange) * KCAL_PER_KG;
-  if (kgToChange > 0 && dailyCalories < minimum) {
-    const maxDeficit = Math.max(1, maintenance - minimum);
-    warning = { reason: 'belowMinimum', suggestedWeeks: Math.ceil(totalKcal / (maxDeficit * 7)) };
-  } else if (Math.abs(kgPerWeek) > 1) {
-    warning = { reason: 'tooFast', suggestedWeeks: Math.ceil(Math.abs(kgToChange)) };
-  }
+  const belowMinimum = kgToChange > 0 && dailyCalories < minimum;
+  const tooFast = Math.abs(kgPerWeek) > 1;
+  const daysAtOneKgPerWeek = Math.ceil(Math.abs(kgToChange) * 7);
+  const daysAtMinimum =
+    kgToChange > 0 ? Math.ceil(totalKcal / Math.max(1, maintenance - minimum)) : 0;
+  const suggestedDays = Math.max(daysAtOneKgPerWeek, daysAtMinimum);
+  const warning: CaloriePlan['warning'] = belowMinimum
+    ? { reason: 'belowMinimum', suggestedDays }
+    : tooFast
+      ? { reason: 'tooFast', suggestedDays }
+      : null;
 
   return { maintenance, kgToChange, kgPerWeek, dailyChange, dailyCalories, warning };
 }

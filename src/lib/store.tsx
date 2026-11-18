@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, type ReactNode, use, useEffect, useState } from 'react';
 
 import type { ActivityLevel, Sex } from './body';
-import { type DateKey, toKey } from './dates';
+import { addDays, type DateKey, isDateKey, toKey } from './dates';
 import type { Nutrition } from './food-lookup';
 import { FOOD_CATEGORIES } from './foods';
 import type { Mode } from './mode';
@@ -110,14 +110,15 @@ export type Goals = {
 export type Profile = {
   heightCm: number | null;
   sex: Sex | null;
-  age: number | null;
+  /** Stored instead of an age so the age stays right as the years pass. */
+  birthDate: DateKey | null;
   activity: ActivityLevel | null;
-  /** How many weeks the user wants to take to reach the target weight. */
-  weeksToGoal: number | null;
-  /** The day the timeline was set, so the weeks left can be counted down. */
-  targetStart: DateKey | null;
+  /** The day the user wants to reach the target weight. */
+  targetDate: DateKey | null;
   /** Section to open straight into on launch; null shows the choice screen. */
   startPage: Mode | null;
+  /** Whether the choice screen has already offered the launch preference once. */
+  startPageAsked: boolean;
 };
 export type Data = {
   profile: Profile;
@@ -141,11 +142,11 @@ const EMPTY: Data = {
   profile: {
     heightCm: null,
     sex: null,
-    age: null,
+    birthDate: null,
     activity: null,
-    weeksToGoal: null,
-    targetStart: null,
+    targetDate: null,
     startPage: null,
+    startPageAsked: false,
   },
   foods: [],
   workouts: [],
@@ -217,7 +218,7 @@ function toWorkouts(session: Session, entries: WorkoutEntry[]): Workout[] {
 }
 
 /** Fills in fields added since the data was saved and upgrades old entry shapes. */
-function normalize(saved: Partial<Data>): Data {
+export function normalize(saved: Partial<Data>): Data {
   return {
     ...EMPTY,
     ...saved,
@@ -234,8 +235,27 @@ function normalize(saved: Partial<Data>): Data {
     }),
     savedFoods: (saved.savedFoods ?? []).map((f) => ({ ...f, category: f.category ?? null })),
     goals: { ...EMPTY.goals, ...saved.goals },
-    profile: { ...EMPTY.profile, ...saved.profile },
+    profile: normalizeProfile(saved.profile),
   };
+}
+
+/**
+ * Earlier versions stored a number of weeks from a start day instead of a target date, and a
+ * typed age instead of a birth date. The age can't be turned into a birth date, so it is dropped
+ * and the profile asks for the birth date instead.
+ */
+function normalizeProfile(saved: Partial<Profile> | undefined): Profile {
+  const { weeksToGoal, targetStart, age, ...rest } = (saved ?? {}) as Partial<Profile> & {
+    weeksToGoal?: number | null;
+    targetStart?: DateKey | null;
+    age?: number | null;
+  };
+  const targetDate =
+    rest.targetDate ??
+    (typeof weeksToGoal === 'number' && isDateKey(targetStart)
+      ? addDays(targetStart, weeksToGoal * 7)
+      : null);
+  return { ...EMPTY.profile, ...rest, targetDate };
 }
 
 export function StoreProvider({ children, onReady }: { children: ReactNode; onReady?: () => void }) {

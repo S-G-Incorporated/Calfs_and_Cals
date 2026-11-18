@@ -1,24 +1,31 @@
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { type CaloriePlan, minimumCalories } from '@/lib/body';
-import { useToday } from '@/lib/dates';
+import { addDays, type DateKey, formatDate, monthStart, useToday } from '@/lib/dates';
 import { useStore } from '@/lib/store';
 import { describeDaysLeft, listWords, targetStatus } from '@/lib/target';
 import { useTheme } from '@/lib/theme';
 
+import { Calendar } from './calendar';
 import { Button, Card, Muted, NumberField } from './ui';
 
-/** Target weight, how many weeks to get there, and the daily calorie budget that implies. */
+/** Target weight, the date to reach it by, and the daily calorie budget that implies. */
 export function TargetPlanScreen() {
   const t = useTheme();
   const today = useToday();
   const { data, resetCount, setProfile, setGoals } = useStore();
-  const { weeksToGoal } = data.profile;
+  const { targetDate } = data.profile;
   const status = targetStatus(data, today);
 
-  // Changing the timeline restarts the countdown from today.
-  const setWeeks = (weeks: number | null) =>
-    setProfile({ weeksToGoal: weeks, targetStart: weeks === null ? null : today });
+  const setDate = (date: DateKey | null) => setProfile({ targetDate: date });
 
   return (
     <KeyboardAvoidingView
@@ -50,19 +57,32 @@ export function TargetPlanScreen() {
           ) : null}
         </Card>
 
-        <Card title="Timeline">
-          <NumberField
-            value={weeksToGoal}
-            unit="weeks"
-            placeholder="How many weeks?"
-            accessibilityLabel="Weeks to reach the target"
-            onChange={(v) => setWeeks(v === null ? null : Math.round(v))}
+        <Card
+          title="Target date"
+          right={
+            targetDate !== null ? (
+              <Pressable
+                onPress={() => setDate(null)}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel="Clear target date"
+                style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
+                <Text style={[styles.clear, { color: t.textSecondary }]}>Clear</Text>
+              </Pressable>
+            ) : null
+          }>
+          <Text style={[styles.dateLabel, { color: targetDate !== null ? t.text : t.textSecondary }]}>
+            {targetDate !== null ? formatDate(targetDate) : 'Pick a day in the calendar'}
+          </Text>
+          {status.daysLeft !== null ? <Muted>{describeDaysLeft(status.daysLeft)}</Muted> : null}
+          <Calendar
+            // Jump to the right month when the date is changed from outside the calendar.
+            key={targetDate !== null ? monthStart(targetDate) : 'none'}
+            value={targetDate}
+            min={addDays(today, 1)}
+            color={t.weight}
+            onChange={setDate}
           />
-          <Muted>
-            {status.daysLeft === null
-              ? 'The countdown starts the day you set the weeks.'
-              : `${describeDaysLeft(status.daysLeft)}. Changing the number restarts the countdown from today.`}
-          </Muted>
         </Card>
 
         <Card title="Calorie plan">
@@ -73,7 +93,7 @@ export function TargetPlanScreen() {
               daysLeft={status.daysLeft ?? 0}
               currentGoal={data.goals.dailyCalories}
               onUse={() => status.plan && setGoals({ dailyCalories: status.plan.dailyCalories })}
-              onUseWeeks={setWeeks}
+              onUseDays={(days) => setDate(addDays(today, days))}
             />
           ) : (
             <>
@@ -84,12 +104,12 @@ export function TargetPlanScreen() {
               ) : null}
               {status.daysLeft !== null && status.daysLeft <= 0 ? (
                 <Text style={[styles.warningText, { color: t.bad }]}>
-                  The timeline has run out. Set a new number of weeks to get a fresh plan.
+                  The target date has passed. Pick a new date to get a fresh plan.
                 </Text>
               ) : status.missing.length > 0 ? (
                 <Muted>
                   To work out how much you can eat per day, fill in your {listWords(status.missing)}
-                  {status.missing.some((m) => m === 'sex' || m === 'age' || m === 'height' || m === 'activity level')
+                  {status.missing.some((m) => m === 'sex' || m === 'birth date' || m === 'height' || m === 'activity level')
                     ? ' in your profile'
                     : ''}
                   .
@@ -113,16 +133,17 @@ function CaloriePlanView({
   daysLeft,
   currentGoal,
   onUse,
-  onUseWeeks,
+  onUseDays,
 }: {
   plan: CaloriePlan;
   minimum: number;
   daysLeft: number;
   currentGoal: number | null;
   onUse: () => void;
-  onUseWeeks: (weeks: number) => void;
+  onUseDays: (days: number) => void;
 }) {
   const t = useTheme();
+  const today = useToday();
   const losing = plan.kgToChange > 0;
   const perWeek = Math.abs(plan.kgPerWeek);
   const atTarget = Math.abs(plan.kgToChange) < 0.05;
@@ -160,13 +181,13 @@ function CaloriePlanView({
               : 'Changing more than 1 kg a week is hard to keep up and not advised.'}
           </Text>
           <Muted>
-            Give yourself at least {plan.warning.suggestedWeeks}{' '}
-            {plan.warning.suggestedWeeks === 1 ? 'week' : 'weeks'} from today.
+            Aim for {formatDate(addDays(today, plan.warning.suggestedDays))} or later
+            ({describeDaysLeft(plan.warning.suggestedDays).replace(' left', '')} from today).
           </Muted>
           <Button
-            label={`Use ${plan.warning.suggestedWeeks} weeks`}
+            label="Move the date there"
             color={t.textSecondary}
-            onPress={() => onUseWeeks(plan.warning?.suggestedWeeks ?? 1)}
+            onPress={() => onUseDays(plan.warning?.suggestedDays ?? 7)}
           />
         </View>
       ) : null}
@@ -196,4 +217,6 @@ const styles = StyleSheet.create({
   big: { fontSize: 34, fontWeight: '800', fontVariant: ['tabular-nums'] },
   warning: { borderRadius: 12, padding: 12, gap: 8 },
   warningText: { fontSize: 14, fontWeight: '600' },
+  dateLabel: { fontSize: 20, fontWeight: '700' },
+  clear: { fontSize: 15, fontWeight: '600' },
 });

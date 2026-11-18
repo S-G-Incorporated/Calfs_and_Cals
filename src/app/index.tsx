@@ -5,6 +5,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ProfileButton } from '@/components/profile-button';
+import { StartPagePicker } from '@/components/start-page-picker';
+import { Card } from '@/components/ui';
 import { addDays, useToday, weekStart } from '@/lib/dates';
 import { sumKcal, useStore } from '@/lib/store';
 import { useTheme } from '@/lib/theme';
@@ -20,9 +22,9 @@ let launched = false;
 export default function ChooseScreen() {
   const t = useTheme();
   const today = useToday();
-  const { data } = useStore();
+  const { data, setProfile } = useStore();
 
-  const startPage = data.profile.startPage;
+  const { startPage, startPageAsked } = data.profile;
   const skip = startPage !== null && !launched;
   useEffect(() => {
     launched = true;
@@ -44,6 +46,13 @@ export default function ChooseScreen() {
       ? `${eaten.toLocaleString()} of ${calorieGoal.toLocaleString()} kcal today`
       : `${eaten.toLocaleString()} kcal today`;
 
+  // The launch preference is offered here only until the user first opens a section;
+  // after that it lives at the bottom of the profile.
+  const open = (href: '/train' | '/calories') => {
+    if (!startPageAsked) setProfile({ startPageAsked: true });
+    router.push(href);
+  };
+
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: t.background }]}>
       <View style={styles.topBar}>
@@ -60,16 +69,22 @@ export default function ChooseScreen() {
           label="Train"
           hint={trainHint}
           color={t.workout}
-          onPress={() => router.push('/train')}
+          onPress={() => open('/train')}
         />
         <Choice
           icon="restaurant"
           label="Track calories"
           hint={calorieHint}
           color={t.calories}
-          onPress={() => router.push('/calories')}
+          onPress={() => open('/calories')}
         />
       </View>
+
+      {!startPageAsked ? (
+        <Card title="Where should the app open?">
+          <StartPagePicker />
+        </Card>
+      ) : null}
     </SafeAreaView>
   );
 }

@@ -59,6 +59,42 @@ export function formatLong(key: DateKey): string {
   return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
 
+/** "Sat 20 Mar 2027": a full date, for days that can be far from today. */
+export function formatDate(key: DateKey): string {
+  return `${formatLong(key)} ${fromKey(key).getFullYear()}`;
+}
+
+/** Whole years from `birth` to `today`, i.e. the age someone born on `birth` has today. */
+export function yearsBetween(birth: DateKey, today: DateKey): number {
+  const b = fromKey(birth);
+  const t = fromKey(today);
+  const hadBirthday =
+    t.getMonth() > b.getMonth() || (t.getMonth() === b.getMonth() && t.getDate() >= b.getDate());
+  return t.getFullYear() - b.getFullYear() - (hadBirthday ? 0 : 1);
+}
+
+/** Days in a month; `month` is 0-based like `Date`. */
+export function daysInMonth(year: number, month: number): number {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+export const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+/** "March 2027" for the month containing `key`. */
+export function formatMonth(key: DateKey): string {
+  const d = fromKey(key);
+  return `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+/** First day of the month containing `key`, moved by `months`. */
+export function monthStart(key: DateKey, months = 0): DateKey {
+  const d = fromKey(key);
+  return toKey(new Date(d.getFullYear(), d.getMonth() + months, 1));
+}
+
 export function formatRelative(key: DateKey, today: DateKey): string {
   if (key === today) return 'Today';
   if (key === addDays(today, -1)) return 'Yesterday';

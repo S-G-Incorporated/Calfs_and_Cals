@@ -1,5 +1,5 @@
 import { type CaloriePlan, caloriePlan, maintenanceCalories } from './body';
-import { type DateKey, daysBetween } from './dates';
+import { type DateKey, daysBetween, yearsBetween } from './dates';
 import { type Data, latestWeight } from './store';
 
 export type TargetStatus = {
@@ -7,7 +7,7 @@ export type TargetStatus = {
   target: number | null;
   /** Positive when losing, negative when gaining; null without a weight or target. */
   kgToChange: number | null;
-  /** Days until the planned date; null when no timeline is set. Can be zero or negative. */
+  /** Days from today until the target date; null when none is set. Can be zero or negative. */
   daysLeft: number | null;
   /** Estimated daily energy use, when the profile has enough detail. */
   maintenance: number | null;
@@ -19,13 +19,13 @@ export type TargetStatus = {
 
 /** Everything the profile and target screens show about the target weight, from one place. */
 export function targetStatus(data: Data, today: DateKey): TargetStatus {
-  const { heightCm, sex, age, activity, weeksToGoal, targetStart } = data.profile;
+  const { heightCm, sex, birthDate, activity, targetDate } = data.profile;
+  const age = birthDate !== null ? yearsBetween(birthDate, today) : null;
   const weight = latestWeight(data.weights, today);
   const target = data.goals.targetWeight;
   const kgToChange = weight !== null && target !== null ? weight - target : null;
 
-  const daysLeft =
-    weeksToGoal !== null ? weeksToGoal * 7 - daysBetween(targetStart ?? today, today) : null;
+  const daysLeft = targetDate !== null ? daysBetween(today, targetDate) : null;
 
   const maintenance =
     sex !== null && weight !== null && heightCm !== null && age !== null && activity !== null
@@ -41,17 +41,17 @@ export function targetStatus(data: Data, today: DateKey): TargetStatus {
     target !== null &&
     daysLeft !== null &&
     daysLeft > 0
-      ? caloriePlan(sex, weight, heightCm, age, activity, target, daysLeft / 7)
+      ? caloriePlan(sex, weight, heightCm, age, activity, target, daysLeft)
       : null;
 
   const missing = [
     sex === null ? 'sex' : null,
-    age === null ? 'age' : null,
+    age === null ? 'birth date' : null,
     heightCm === null ? 'height' : null,
     weight === null ? 'weight' : null,
     activity === null ? 'activity level' : null,
     target === null ? 'target weight' : null,
-    weeksToGoal === null ? 'number of weeks' : null,
+    targetDate === null ? 'target date' : null,
   ].filter((m): m is string => m !== null);
 
   return { weight, target, kgToChange, daysLeft, maintenance, plan, missing };
