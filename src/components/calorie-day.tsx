@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -23,7 +23,7 @@ import { Button, Card, Entry, Field, Muted, ProgressBar, Toggle } from './ui';
 export function CalorieDayView({ date }: { date: DateKey }) {
   const t = useTheme();
   const today = useToday();
-  const { data, addFood, removeFood, saveFood, setWeight } = useStore();
+  const { data, addFood, removeFood, saveFood } = useStore();
 
   const foods = data.foods.filter((f) => f.date === date);
   const savedWeight = data.weights[date] ?? null;
@@ -38,8 +38,6 @@ export function CalorieDayView({ date }: { date: DateKey }) {
   const [saveNew, setSaveNew] = useState(false);
   const [gramsText, setGramsText] = useState('');
   const [category, setCategory] = useState<string | null>(null);
-
-  const [weightText, setWeightText] = useState(savedWeight === null ? '' : String(savedWeight));
 
   const eaten = sumKcal(foods);
   const macros = sumMacros(foods);
@@ -77,13 +75,6 @@ export function CalorieDayView({ date }: { date: DateKey }) {
     setCarbsText('');
     setGramsText('');
     setSaveNew(false);
-  };
-
-  const weight = parseNumber(weightText);
-  const weightChanged = weight !== savedWeight;
-  const submitWeight = () => {
-    if (weightText.trim() === '') setWeight(date, null);
-    else if (weight !== null) setWeight(date, weight);
   };
 
   return (
@@ -213,26 +204,7 @@ export function CalorieDayView({ date }: { date: DateKey }) {
           ) : null}
         </Card>
 
-        <Card title="Weight">
-          <View style={styles.row}>
-            <Field
-              flex={1}
-              value={weightText}
-              onChangeText={setWeightText}
-              placeholder="kg"
-              keyboardType="decimal-pad"
-              returnKeyType="done"
-              onSubmitEditing={submitWeight}
-              accessibilityLabel="Weight in kilograms"
-            />
-            <Button
-              label={weightChanged ? 'Save' : 'Saved'}
-              color={t.weight}
-              disabled={!weightChanged || (weight === null && weightText.trim() !== '')}
-              onPress={submitWeight}
-            />
-          </View>
-        </Card>
+        <WeightCard date={date} />
 
         {foods.length > 0 ? (
           <Card title="Logged">
@@ -251,6 +223,56 @@ export function CalorieDayView({ date }: { date: DateKey }) {
         ) : null}
       </ScrollView>
     </KeyboardAvoidingView>
+  );
+}
+
+/** Body weight for the day. The same value appears in the profile, and edits there show up here. */
+function WeightCard({ date }: { date: DateKey }) {
+  const t = useTheme();
+  const { data, setWeight } = useStore();
+  const savedWeight = data.weights[date] ?? null;
+  const [weightText, setWeightText] = useState(savedWeight === null ? '' : String(savedWeight));
+
+  // Re-read the stored value when the screen comes back into view, e.g. after the profile changed it.
+  const latest = useRef(savedWeight);
+  useEffect(() => {
+    latest.current = savedWeight;
+  }, [savedWeight]);
+  useFocusEffect(
+    useCallback(() => {
+      setWeightText(latest.current === null ? '' : String(latest.current));
+    }, []),
+  );
+
+  const weight = parseNumber(weightText);
+  const weightChanged = weight !== savedWeight;
+  const submitWeight = () => {
+    if (weightText.trim() === '') setWeight(date, null);
+    else if (weight !== null) setWeight(date, weight);
+  };
+
+  return (
+    <Card title="Weight">
+      <View style={styles.row}>
+        <Field
+          flex={1}
+          value={weightText}
+          onChangeText={setWeightText}
+          placeholder="kg"
+          keyboardType="decimal-pad"
+          returnKeyType="done"
+          onSubmitEditing={submitWeight}
+          accessibilityLabel="Weight in kilograms"
+        />
+        <Button
+          label={weightChanged ? 'Save' : 'Saved'}
+          color={t.weight}
+          disabled={!weightChanged || (weight === null && weightText.trim() !== '')}
+          onPress={submitWeight}
+        />
+      </View>
+      <Muted>Also shown in your profile, where your BMI is calculated.</Muted>
+    </Card>
   );
 }
 

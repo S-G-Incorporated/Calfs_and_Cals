@@ -1,4 +1,4 @@
-import type { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -12,6 +12,7 @@ import {
   describeDay,
   describeSet,
   EXERCISES,
+  formatDuration,
   isStrength,
   trainingDays,
 } from '@/lib/workouts';
@@ -34,6 +35,7 @@ export function WorkoutDayView({ date }: { date: DateKey }) {
     useStore();
 
   const workouts = data.workouts.filter((w) => w.date === date);
+  const sessions = data.sessions.filter((s) => s.date === date);
 
   const monday = weekStart(date);
   const sunday = addDays(monday, 6);
@@ -117,6 +119,22 @@ export function WorkoutDayView({ date }: { date: DateKey }) {
           {goal !== null ? <ProgressBar fraction={weekDays / goal} color={t.workout} /> : null}
           <Muted>{daySummary ? `This day: ${daySummary}` : 'Nothing logged on this day yet.'}</Muted>
         </Card>
+
+        {sessions.length > 0 ? (
+          <Card title="Workouts">
+            {sessions.map((s) => (
+              <View key={s.id} style={styles.sessionRow}>
+                <Ionicons name="stopwatch-outline" size={18} color={t.workout} />
+                <Text style={[styles.sessionName, { color: t.text }]} numberOfLines={1}>
+                  {s.routineName}
+                </Text>
+                <Text style={[styles.sessionTime, { color: t.textSecondary }]}>
+                  {formatDuration(s.seconds)}
+                </Text>
+              </View>
+            ))}
+          </Card>
+        ) : null}
 
         <Card title="Strength">
           <Dropdown
@@ -283,4 +301,7 @@ const styles = StyleSheet.create({
   remaining: { fontSize: 15, fontWeight: '700' },
   targetRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   targetLabel: { fontSize: 15 },
+  sessionRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  sessionName: { flex: 1, fontSize: 16 },
+  sessionTime: { fontSize: 15, fontVariant: ['tabular-nums'] },
 });

@@ -1,11 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Tabs } from 'expo-router/js-tabs';
+import { BottomTabBar, Tabs } from 'expo-router/js-tabs';
 import { type ColorValue, Pressable, StyleSheet } from 'react-native';
 
 import { formatLong, useToday } from '@/lib/dates';
 import { MODE_LABEL, type Mode, modeColor } from '@/lib/mode';
 import { useTheme } from '@/lib/theme';
+
+import { MiniWorkoutBar } from './mini-workout-bar';
+import { ProfileButton } from './profile-button';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -37,17 +40,24 @@ export function SectionTabs({ mode }: { mode: Mode }) {
 
   return (
     <Tabs
+      tabBar={(props) => (
+        <>
+          <MiniWorkoutBar />
+          <BottomTabBar {...props} />
+        </>
+      )}
       screenOptions={{
         tabBarActiveTintColor: modeColor(mode, t),
         headerLeft: () => <SwitchButton />,
+        headerRight: () => <ProfileButton />,
       }}>
       <Tabs.Screen
         name="index"
-        options={{
-          title: 'Today',
-          headerTitle: `${label} · ${formatLong(today)}`,
-          tabBarIcon: icon('today'),
-        }}
+        options={
+          mode === 'train'
+            ? { title: 'Routines', headerTitle: 'Routines', tabBarIcon: icon('list') }
+            : { title: 'Today', headerTitle: `${label} · ${formatLong(today)}`, tabBarIcon: icon('today') }
+        }
       />
       {mode === 'calories' ? (
         <Tabs.Screen
@@ -55,10 +65,12 @@ export function SectionTabs({ mode }: { mode: Mode }) {
           options={{ title: 'Foods', headerTitle: 'Saved foods', tabBarIcon: icon('bookmark') }}
         />
       ) : null}
-      <Tabs.Screen
-        name="history"
-        options={{ title: 'History', headerTitle: `${label} history`, tabBarIcon: icon('calendar') }}
-      />
+      {mode === 'calories' ? (
+        <Tabs.Screen
+          name="history"
+          options={{ title: 'History', headerTitle: `${label} history`, tabBarIcon: icon('calendar') }}
+        />
+      ) : null}
       <Tabs.Screen
         name="progress"
         options={{ title: 'Progress', headerTitle: `${label} progress`, tabBarIcon: icon('stats-chart') }}

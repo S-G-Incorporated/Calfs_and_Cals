@@ -1,18 +1,35 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
+import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ProfileButton } from '@/components/profile-button';
+import { StartPagePicker } from '@/components/start-page-picker';
+import { Card } from '@/components/ui';
 import { addDays, useToday, weekStart } from '@/lib/dates';
 import { sumKcal, useStore } from '@/lib/store';
 import { useTheme } from '@/lib/theme';
 import { trainingDays } from '@/lib/workouts';
 
+/**
+ * True once the app has passed the launch screen, so a configured start page only skips it on
+ * startup and not every time the user comes back here on purpose.
+ */
+let launched = false;
+
 /** First screen on launch: pick whether to train or track calories. */
 export default function ChooseScreen() {
   const t = useTheme();
   const today = useToday();
-  const { data } = useStore();
+  const { data, setProfile } = useStore();
+
+  const { startPage, startPageAsked } = data.profile;
+  const skip = startPage !== null && !launched;
+  useEffect(() => {
+    launched = true;
+  }, []);
+  if (skip) return <Redirect href={startPage === 'train' ? '/train' : '/calories'} />;
 
   const monday = weekStart(today);
   const weekDays = trainingDays(data.workouts, monday, addDays(monday, 6));
@@ -29,8 +46,18 @@ export default function ChooseScreen() {
       ? `${eaten.toLocaleString()} of ${calorieGoal.toLocaleString()} kcal today`
       : `${eaten.toLocaleString()} kcal today`;
 
+  // The launch preference is offered here only until the user first opens a section;
+  // after that it lives at the bottom of the profile.
+  const open = (href: '/train' | '/calories') => {
+    if (!startPageAsked) setProfile({ startPageAsked: true });
+    router.push(href);
+  };
+
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: t.background }]}>
+      <View style={styles.topBar}>
+        <ProfileButton size={32} />
+      </View>
       <View style={styles.header}>
         <Text style={[styles.title, { color: t.text }]}>Calfs & Cals</Text>
         <Text style={[styles.question, { color: t.textSecondary }]}>What do you want to do?</Text>
@@ -42,16 +69,22 @@ export default function ChooseScreen() {
           label="Train"
           hint={trainHint}
           color={t.workout}
-          onPress={() => router.push('/train')}
+          onPress={() => open('/train')}
         />
         <Choice
           icon="restaurant"
           label="Track calories"
           hint={calorieHint}
           color={t.calories}
-          onPress={() => router.push('/calories')}
+          onPress={() => open('/calories')}
         />
       </View>
+
+      {!startPageAsked ? (
+        <Card title="Where should the app open?">
+          <StartPagePicker />
+        </Card>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -92,6 +125,7 @@ function Choice({
 
 const styles = StyleSheet.create({
   screen: { flex: 1, padding: 24, gap: 32, justifyContent: 'center' },
+  topBar: { position: 'absolute', top: 8, right: 8 },
   header: { gap: 6 },
   title: { fontSize: 34, fontWeight: '800' },
   question: { fontSize: 17 },

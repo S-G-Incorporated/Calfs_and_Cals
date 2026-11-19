@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { ReactNode } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -10,6 +11,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { parseNumber } from '@/lib/store';
 import { useTheme } from '@/lib/theme';
 
 export function Card({ title, right, children }: { title?: string; right?: ReactNode; children: ReactNode }) {
@@ -100,6 +102,59 @@ export function Chip({
         </Text>
       ) : null}
     </Pressable>
+  );
+}
+
+/**
+ * Numeric input with a unit that saves on every valid keystroke; empty clears the value.
+ * When the screen comes back into view it picks up changes made elsewhere in the app.
+ */
+export function NumberField({
+  value,
+  unit,
+  decimal,
+  placeholder = 'Not set',
+  accessibilityLabel,
+  onChange,
+}: {
+  value: number | null;
+  unit: string;
+  decimal?: boolean;
+  placeholder?: string;
+  accessibilityLabel?: string;
+  onChange: (value: number | null) => void;
+}) {
+  const t = useTheme();
+  const [text, setText] = useState(value === null ? '' : String(value));
+
+  // The latest stored value, read only when the screen regains focus so typing "70." is not
+  // overwritten by the parsed 70 on each keystroke.
+  const latest = useRef(value);
+  useEffect(() => {
+    latest.current = value;
+  }, [value]);
+  useFocusEffect(
+    useCallback(() => {
+      setText(latest.current === null ? '' : String(latest.current));
+    }, []),
+  );
+
+  return (
+    <View style={styles.numberRow}>
+      <Field
+        flex={1}
+        value={text}
+        placeholder={placeholder}
+        keyboardType={decimal ? 'decimal-pad' : 'number-pad'}
+        returnKeyType="done"
+        accessibilityLabel={accessibilityLabel ?? unit}
+        onChangeText={(next) => {
+          setText(next);
+          onChange(parseNumber(next));
+        }}
+      />
+      <Text style={[styles.unit, { color: t.textSecondary }]}>{unit}</Text>
+    </View>
   );
 }
 
@@ -205,6 +260,8 @@ const styles = StyleSheet.create({
   },
   chipLabel: { fontSize: 15, fontWeight: '600' },
   chipDetail: { fontSize: 13 },
+  numberRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  unit: { fontSize: 16, minWidth: 70 },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start' },
   toggleLabel: { fontSize: 15 },
   entry: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 32 },
