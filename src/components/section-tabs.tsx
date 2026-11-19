@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Tabs } from 'expo-router/js-tabs';
+import { BottomTabBar, Tabs } from 'expo-router/js-tabs';
 import { type ColorValue, Pressable, StyleSheet } from 'react-native';
 
 import { formatLong, useToday } from '@/lib/dates';
 import { MODE_LABEL, type Mode, modeColor } from '@/lib/mode';
 import { useTheme } from '@/lib/theme';
 
+import { MiniWorkoutBar } from './mini-workout-bar';
 import { ProfileButton } from './profile-button';
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -39,6 +40,12 @@ export function SectionTabs({ mode }: { mode: Mode }) {
 
   return (
     <Tabs
+      tabBar={(props) => (
+        <>
+          <MiniWorkoutBar />
+          <BottomTabBar {...props} />
+        </>
+      )}
       screenOptions={{
         tabBarActiveTintColor: modeColor(mode, t),
         headerLeft: () => <SwitchButton />,

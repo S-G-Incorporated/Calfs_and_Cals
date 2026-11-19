@@ -1,5 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { addDays, formatShort, lastDays, useToday, weekStart } from '@/lib/dates';
 import type { Mode } from '@/lib/mode';
@@ -18,36 +19,34 @@ const DAY_RANGES: Range[] = [
   { days: 30, weeks: 8, label: '30 days' },
   { days: 90, weeks: 13, label: '90 days' },
 ];
-const WEEK_RANGES: Range[] = [
-  { days: 7, weeks: 4, label: '4 weeks' },
-  { days: 30, weeks: 8, label: '8 weeks' },
-  { days: 90, weeks: 13, label: '13 weeks' },
-];
+/** Weeks shown in the training chart; every week is listed on request below it. */
+const CHART_WEEKS = 8;
 
 /** Charts for one section: workouts per week, or calories per day and weight. */
 export function ProgressCharts({ mode }: { mode: Mode }) {
   const t = useTheme();
-  const ranges = mode === 'train' ? WEEK_RANGES : DAY_RANGES;
-  const [range, setRange] = useState(ranges[1]);
+  const [range, setRange] = useState(DAY_RANGES[1]);
   const today = useToday();
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
-      <View style={styles.ranges}>
-        {ranges.map((r) => (
-          <Chip
-            key={r.days}
-            label={r.label}
-            color={t.textSecondary}
-            selected={r === range}
-            onPress={() => setRange(r)}
-          />
-        ))}
-      </View>
+      {mode === 'train' ? null : (
+        <View style={styles.ranges}>
+          {DAY_RANGES.map((r) => (
+            <Chip
+              key={r.days}
+              label={r.label}
+              color={t.textSecondary}
+              selected={r === range}
+              onPress={() => setRange(r)}
+            />
+          ))}
+        </View>
+      )}
       {mode === 'train' ? (
         <>
-          <WorkoutsCard weekCount={range.weeks} />
-          <WorkoutLog from={addDays(weekStart(today), -7 * (range.weeks - 1))} />
+          <WorkoutsCard weekCount={CHART_WEEKS} />
+          <WorkoutLog from={addDays(weekStart(today), -7 * (CHART_WEEKS - 1))} />
         </>
       ) : (
         <>
@@ -63,6 +62,7 @@ function WorkoutsCard({ weekCount }: { weekCount: number }) {
   const t = useTheme();
   const today = useToday();
   const { data } = useStore();
+  const [showAll, setShowAll] = useState(false);
 
   const thisMonday = weekStart(today);
   const weeks = Array.from({ length: weekCount }, (_, i) => {
@@ -85,7 +85,71 @@ function WorkoutsCard({ weekCount }: { weekCount: number }) {
       />
       <BarChart data={weeks} color={t.workout} goal={goal} integer />
       {goal !== null ? <GoalLegend text={`Goal ${goal} per week`} /> : null}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: showAll }}
+        onPress={() => setShowAll((v) => !v)}
+        style={({ pressed }) => [styles.allButton, { backgroundColor: t.field, opacity: pressed ? 0.6 : 1 }]}>
+        <Ionicons name={showAll ? 'chevron-up' : 'list'} size={18} color={t.text} />
+        <Text style={[styles.allLabel, { color: t.text }]}>{showAll ? 'Hide weeks' : 'See every week'}</Text>
+      </Pressable>
+      {showAll ? <AllWeeks goal={goal} /> : null}
     </Card>
+  );
+}
+
+/** Every week from the first logged workout until now, newest first, with its training days. */
+function AllWeeks({ goal }: { goal: number | null }) {
+  const t = useTheme();
+  const today = useToday();
+  const { data } = useStore();
+
+  const thisMonday = weekStart(today);
+  const first = data.workouts.reduce<string | null>((min, w) => (min === null || w.date < min ? w.date : min), null);
+  if (first === null) return <Muted>No workouts logged yet.</Muted>;
+
+  const weeks: { monday: string; days: number; sessions: number }[] = [];
+  for (let monday = thisMonday; monday >= weekStart(first); monday = addDays(monday, -7)) {
+    const sunday = addDays(monday, 6);
+    weeks.push({
+      monday,
+      days: trainingDays(data.workouts, monday, sunday),
+      sessions: data.sessions.filter((s) => s.date >= monday && s.date <= sunday).length,
+    });
+  }
+
+  return (
+    <View>
+      {weeks.map((w, i) => {
+        const reached = goal !== null && w.days >= goal;
+        return (
+          <View
+            key={w.monday}
+            style={[styles.weekRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderColor: t.border }]}>
+            <View style={styles.weekText}>
+              <Text style={[styles.weekLabel, { color: t.text }]}>
+                {w.monday === thisMonday ? 'This week' : `Week of ${formatShort(w.monday)}`}
+              </Text>
+              <Muted>
+                {formatShort(w.monday)} – {formatShort(addDays(w.monday, 6))}
+                {w.sessions > 0 ? ` · ${w.sessions} ${w.sessions === 1 ? 'routine' : 'routines'}` : ''}
+              </Muted>
+            </View>
+            <Text style={[styles.weekCount, { color: w.days > 0 ? t.text : t.textSecondary }]}>
+              {w.days} {w.days === 1 ? 'time' : 'times'}
+            </Text>
+            {goal !== null ? (
+              <Ionicons
+                name={reached ? 'checkmark-circle' : 'ellipse-outline'}
+                size={20}
+                color={reached ? t.good : t.textSecondary}
+                accessibilityLabel={reached ? 'Goal reached' : 'Goal not reached'}
+              />
+            ) : null}
+          </View>
+        );
+      })}
+    </View>
   );
 }
 
@@ -186,4 +250,17 @@ const styles = StyleSheet.create({
   value: { fontSize: 26, fontWeight: '800', fontVariant: ['tabular-nums'] },
   legend: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   dash: { width: 18, borderTopWidth: 2, borderStyle: 'dashed' },
+  allButton: {
+    height: 44,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  allLabel: { fontSize: 15, fontWeight: '600' },
+  weekRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
+  weekText: { flex: 1, gap: 2 },
+  weekLabel: { fontSize: 15, fontWeight: '600' },
+  weekCount: { fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
 });

@@ -3,6 +3,8 @@ import { router } from 'expo-router';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button, Muted } from '@/components/ui';
+import { useActiveWorkout } from '@/lib/active-workout';
+import { confirm } from '@/lib/confirm';
 import { type DateKey, formatRelative, toKey, useToday } from '@/lib/dates';
 import { type Routine, type Session, useStore } from '@/lib/store';
 import { useTheme } from '@/lib/theme';
@@ -59,7 +61,27 @@ function RoutineCard({
   lastSession: Session | undefined;
 }) {
   const t = useTheme();
+  const { workout, start } = useActiveWorkout();
+  const inProgress = workout?.routineId === routine.id;
   const count = routine.exercises.length;
+
+  const open = () => router.push({ pathname: '/workout/[id]', params: { id: routine.id } });
+  const onStart = () => {
+    if (!workout || inProgress) {
+      if (!workout) start(routine);
+      open();
+      return;
+    }
+    confirm(
+      'Start a new workout?',
+      `"${workout.routineName}" is still in progress and will be discarded.`,
+      'Discard and start',
+      () => {
+        start(routine);
+        open();
+      },
+    );
+  };
   const names = routine.exercises.map(routineItemName).join(', ');
 
   return (
@@ -95,11 +117,11 @@ function RoutineCard({
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Start ${routine.name}`}
-          onPress={() => router.push({ pathname: '/workout/[id]', params: { id: routine.id } })}
+          accessibilityLabel={`${inProgress ? 'Resume' : 'Start'} ${routine.name}`}
+          onPress={onStart}
           style={({ pressed }) => [styles.action, { backgroundColor: t.workout, opacity: pressed ? 0.7 : 1 }]}>
-          <Ionicons name="play" size={18} color={t.onAccent} />
-          <Text style={[styles.actionLabel, { color: t.onAccent }]}>Start</Text>
+          <Ionicons name={inProgress ? 'stopwatch' : 'play'} size={18} color={t.onAccent} />
+          <Text style={[styles.actionLabel, { color: t.onAccent }]}>{inProgress ? 'Resume' : 'Start'}</Text>
         </Pressable>
       </View>
     </View>
