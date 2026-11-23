@@ -32,7 +32,7 @@ function SwitchButton() {
   );
 }
 
-/** The four tabs (Today, History, Progress, Goals) for one section of the app. */
+/** The tabs for one section: Today/Routines, Foods (calories only), Progress and Goals. */
 export function SectionTabs({ mode }: { mode: Mode }) {
   const t = useTheme();
   const today = useToday();
@@ -63,12 +63,6 @@ export function SectionTabs({ mode }: { mode: Mode }) {
         <Tabs.Screen
           name="foods"
           options={{ title: 'Foods', headerTitle: 'Saved foods', tabBarIcon: icon('bookmark') }}
-        />
-      ) : null}
-      {mode === 'calories' ? (
-        <Tabs.Screen
-          name="history"
-          options={{ title: 'History', headerTitle: `${label} history`, tabBarIcon: icon('calendar') }}
         />
       ) : null}
       <Tabs.Screen

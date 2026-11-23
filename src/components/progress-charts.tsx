@@ -8,41 +8,22 @@ import { useStore } from '@/lib/store';
 import { useTheme } from '@/lib/theme';
 import { trainingDays } from '@/lib/workouts';
 
+import { CalorieLog } from './calorie-log';
 import { BarChart, LineChart } from './charts';
-import { Card, Chip, Muted } from './ui';
+import { Card, Muted } from './ui';
 import { WorkoutLog } from './workout-log';
 
-type Range = { days: number; weeks: number; label: string };
-
-const DAY_RANGES: Range[] = [
-  { days: 7, weeks: 4, label: '7 days' },
-  { days: 30, weeks: 8, label: '30 days' },
-  { days: 90, weeks: 13, label: '90 days' },
-];
 /** Weeks shown in the training chart; every week is listed on request below it. */
 const CHART_WEEKS = 8;
+/** Days shown in the calorie and weight charts; older days can be loaded in the list below. */
+const CHART_DAYS = 30;
 
 /** Charts for one section: workouts per week, or calories per day and weight. */
 export function ProgressCharts({ mode }: { mode: Mode }) {
-  const t = useTheme();
-  const [range, setRange] = useState(DAY_RANGES[1]);
   const today = useToday();
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
-      {mode === 'train' ? null : (
-        <View style={styles.ranges}>
-          {DAY_RANGES.map((r) => (
-            <Chip
-              key={r.days}
-              label={r.label}
-              color={t.textSecondary}
-              selected={r === range}
-              onPress={() => setRange(r)}
-            />
-          ))}
-        </View>
-      )}
       {mode === 'train' ? (
         <>
           <WorkoutsCard weekCount={CHART_WEEKS} />
@@ -50,8 +31,9 @@ export function ProgressCharts({ mode }: { mode: Mode }) {
         </>
       ) : (
         <>
-          <CaloriesCard dayCount={range.days} />
-          <WeightCard dayCount={range.days} />
+          <CaloriesCard dayCount={CHART_DAYS} />
+          <WeightCard dayCount={CHART_DAYS} />
+          <CalorieLog days={CHART_DAYS} />
         </>
       )}
     </ScrollView>
@@ -185,7 +167,7 @@ function CaloriesCard({ dayCount }: { dayCount: number }) {
           {goal !== null ? <GoalLegend text={`Max ${goal.toLocaleString()} kcal`} /> : null}
         </>
       ) : (
-        <Muted>No calories logged in this period.</Muted>
+        <Muted>No calories logged in the last {dayCount} days.</Muted>
       )}
     </Card>
   );
@@ -210,7 +192,7 @@ function WeightCard({ dayCount }: { dayCount: number }) {
             value={`${recorded[recorded.length - 1]} kg`}
             caption={
               change !== null
-                ? `${change > 0 ? '+' : ''}${change.toFixed(1)} kg in this period`
+                ? `${change > 0 ? '+' : ''}${change.toFixed(1)} kg in the last ${dayCount} days`
                 : 'Log more days to see a trend'
             }
           />
@@ -218,7 +200,7 @@ function WeightCard({ dayCount }: { dayCount: number }) {
           {target !== null ? <GoalLegend text={`Target ${target} kg`} /> : null}
         </>
       ) : (
-        <Muted>No weight logged in this period.</Muted>
+        <Muted>No weight logged in the last {dayCount} days.</Muted>
       )}
     </Card>
   );
@@ -246,7 +228,6 @@ function GoalLegend({ text }: { text: string }) {
 
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 16, paddingBottom: 32 },
-  ranges: { flexDirection: 'row', gap: 8 },
   value: { fontSize: 26, fontWeight: '800', fontVariant: ['tabular-nums'] },
   legend: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   dash: { width: 18, borderTopWidth: 2, borderStyle: 'dashed' },
