@@ -1,0 +1,31 @@
+@startuml 12-aktivitet-ci
+title Aktivitetsdiagram – CI med GitHub Actions
+
+|Udvikler|
+start
+:Push til feature-branch;
+:Opret pull request;
+
+|GitHub Actions: Tests (app_tests.yaml)|
+:Checkout + Node.js LTS;
+:npm ci;
+:npx expo lint;
+:npx tsc --noEmit;
+:npx jest --ci;
+if (Alle checks grønne?) then (ja)
+  |Udvikler|
+  :Review og merge til main;
+else (nej)
+  |Udvikler|
+  :Ret fejl og push igen;
+  stop
+endif
+
+|GitHub Actions: Build (app_build.yaml)|
+:Checkout + Node.js LTS;
+:npm ci;
+:npx jest --ci;
+:npx expo export --platform all;
+:Upload artifact app-build-{sha}\n(gemmes i 14 dage);
+stop
+@enduml

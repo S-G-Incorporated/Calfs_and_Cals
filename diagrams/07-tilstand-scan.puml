@@ -1,0 +1,27 @@
+@startuml 07-tilstand-scan
+title Tilstandsdiagram – Scan-skærmen (app/scan.tsx)
+hide empty description
+
+[*] --> TjekkerTilladelse
+state "Tjekker tilladelse\n(permission = null)" as TjekkerTilladelse
+state "Mangler tilladelse" as Mangler
+state "Scanner\n(barcode = null)" as Scanner
+state "Slår op\n(result = null)" as SlaarOp
+state "Fejl / ikke fundet" as Fejl
+state "Portionsformular" as Form
+
+TjekkerTilladelse --> Scanner : [granted]
+TjekkerTilladelse --> Mangler : [ikke granted]
+Mangler --> Scanner : requestPermission() [granted]
+Mangler --> [*] : Open settings / luk
+
+Scanner --> Form : onBarcodeScanned [findes i savedFoods]
+Scanner --> SlaarOp : onBarcodeScanned [ikke gemt]
+SlaarOp --> Form : [status = found]
+SlaarOp --> Fejl : [status = missing ∨ error]
+SlaarOp --> [*] : luk skærm / abort()
+
+Fejl --> Scanner : "Scan again" / rescan()
+Form --> Scanner : "Scan another barcode" / rescan()
+Form --> [*] : "Add" [gram gyldig]\n/ addFood(), evt. saveFood()
+@enduml

@@ -1,0 +1,62 @@
+@startuml 04-sekvens-scan-stregkode
+title Sekvensdiagram (design) – UC2 Scan stregkode
+autonumber
+skinparam sequenceMessageAlign center
+
+actor Bruger
+participant "CalorieDayView" as Day
+participant "ScanScreen\n(app/scan.tsx)" as Scan
+participant "CameraView\n(expo-camera)" as Cam
+participant "StoreProvider\n(lib/store.tsx)" as Store
+participant "lookupBarcode()\n(lib/food-lookup.ts)" as Lookup
+participant "Open Food Facts\nAPI v2" as OFF
+participant "PortionForm" as Form
+database "AsyncStorage" as AS
+
+Bruger -> Day : tryk "Scan"
+Day -> Scan : router.push('/scan', {date})
+Scan -> Scan : useCameraPermissions()
+alt tilladelse ikke givet
+  Scan --> Bruger : "Allow camera" / "Open settings"
+  Bruger -> Scan : requestPermission()
+end
+Scan -> Cam ** : render (ean13, ean8, upc_a, upc_e)
+Bruger -> Cam : peg på stregkode
+Cam -> Scan : onBarcodeScanned(data)
+Scan -> Scan : setBarcode(data)
+destroy Cam
+Scan -> Store : findSavedFood(savedFoods, {barcode})
+alt fødevare gemt tidligere (offline)
+  Store --> Scan : SavedFood
+else ikke gemt
+  Store --> Scan : undefined
+  Scan -> Lookup : lookupBarcode(barcode, signal)
+  Lookup -> OFF : GET /api/v2/product/{barcode}.json\nUser-Agent: slug/version (platform)
+  alt 200 og status = 1
+    OFF --> Lookup : product_name, brands, nutriments
+    Lookup -> Lookup : kcal = energy-kcal_100g\n?? energy_100g / 4.184
+    Lookup --> Scan : {status: 'found', product}
+  else 404 / ingen kcal
+    OFF --> Lookup : status 0
+    Lookup --> Scan : {status: 'missing'}
+    Scan --> Bruger : "No nutrition data found" + "Scan again"
+  else netværks-/serverfejl
+    Lookup --> Scan : {status: 'error'}
+    Scan --> Bruger : "Could not reach the food database"
+  end
+end
+
+Scan -> Form ** : render(product, date)
+Bruger -> Form : indtast gram
+Form -> Form : portion(product, grams)
+Form --> Bruger : kcal, protein, fedt, kulhydrat
+Bruger -> Form : tryk "Add"
+Form -> Store : addFood(date, kcal, name, macros)
+opt "Save to my foods" valgt og ikke allerede gemt
+  Form -> Store : saveFood({name, category, barcode, ...pr. 100 g})
+end
+Store -> Store : setData(ny Data)
+Store ->> AS : setItem('calfs-and-cals/v1', JSON)
+Form -> Scan : router.back()
+Scan --> Day : skærm lukkes, dagen viser ny registrering
+@enduml

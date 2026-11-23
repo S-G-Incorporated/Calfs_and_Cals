@@ -1,0 +1,113 @@
+@startuml 02-domaenemodel
+title Calfs & Cals – Domænemodel
+hide circle
+hide methods
+skinparam classAttributeIconSize 0
+
+class Bruger
+class Profil {
+  højde
+  køn
+  fødselsdato
+  aktivitetsniveau
+  måldato
+  startside
+}
+class "Mål" as Maal {
+  maks. kcal pr. dag
+  træningsdage pr. uge
+  målvægt
+}
+class "Vægtmåling" as Vaegtmaaling {
+  dato
+  kg
+}
+class Madregistrering {
+  dato
+  tidspunkt
+  navn
+  kcal
+  gram
+  protein
+  fedt
+  kulhydrat
+}
+class "GemtFødevare" as GemtFoedevare {
+  navn
+  kcal pr. 100 g
+  protein/fedt/kulhydrat pr. 100 g
+  stregkode
+}
+class Kategori {
+  navn
+}
+class Produkt <<Open Food Facts>> {
+  stregkode
+  navn
+  næringsindhold pr. 100 g
+}
+class "Øvelse" as Oevelse {
+  navn
+  målvægt (kg)
+}
+class Aktivitet {
+  navn
+}
+class Rutine {
+  navn
+  senest ændret
+}
+class "PlanlagtØvelse" as PlanlagtOevelse {
+  sæt
+  reps
+  kg
+  km
+  minutter
+}
+class "Træningssession" as Traeningssession {
+  dato
+  afsluttet tidspunkt
+  varighed
+}
+abstract class "Træningsregistrering" as Traeningsregistrering {
+  dato
+  tidspunkt
+}
+class "Styrkesæt" as Styrkesaet {
+  reps
+  kg
+}
+class Cardio {
+  minutter
+  km
+}
+
+Bruger "1" -- "1" Profil : har >
+Bruger "1" -- "1" Maal : sætter >
+Bruger "1" -- "0..*" Vaegtmaaling : logger >
+Bruger "1" -- "0..*" Madregistrering : logger >
+Bruger "1" -- "0..*" GemtFoedevare : gemmer >
+Bruger "1" -- "0..*" Rutine : opretter >
+Bruger "1" -- "0..*" Traeningsregistrering : logger >
+
+GemtFoedevare "0..*" -- "0..1" Kategori : tilhører >
+GemtFoedevare "0..1" .. "0..1" Produkt : stammer fra >
+Madregistrering "0..*" .. "0..1" Produkt : beregnet ud fra >
+Madregistrering "0..*" .. "0..1" GemtFoedevare : beregnet ud fra >
+
+Rutine "1" *-- "0..*" PlanlagtOevelse : består af >
+PlanlagtOevelse "0..*" -- "0..1" Oevelse : af (styrke) >
+PlanlagtOevelse "0..*" -- "0..1" Aktivitet : af (cardio) >
+Traeningssession "0..*" -- "1" Rutine : startet fra >
+Traeningssession "0..1" o-- "0..*" Traeningsregistrering : indeholder >
+
+Traeningsregistrering <|-- Styrkesaet
+Traeningsregistrering <|-- Cardio
+Styrkesaet "0..*" -- "1" Oevelse : af >
+Cardio "0..*" -- "1" Aktivitet : af >
+
+note bottom of Traeningssession
+  Sæt kan også logges direkte på en dag
+  uden en session (0..1).
+end note
+@enduml

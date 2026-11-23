@@ -1,0 +1,44 @@
+@startuml 06-tilstand-aktiv-traening
+title Tilstandsdiagram – Aktiv træning (ActiveWorkout)
+hide empty description
+
+[*] --> IngenTraening
+
+state "Ingen træning\n(workout = null)" as IngenTraening
+
+state "Træning i gang" as Aktiv {
+  state "Kører\n(runningSince ≠ null)" as Koerer {
+    state "Træner\n(restEndsAt = null)" as Traener
+    state "Hviler\n(restEndsAt ≠ null)" as Hviler
+    [*] --> Traener
+    Traener --> Hviler : startRest()\n[restSeconds > 0]
+    Hviler --> Traener : skipRest()
+    Hviler --> Traener : adjustRest(-n)\n[restEndsAt ≤ now]
+    Hviler --> Hviler : adjustRest(+n)
+    Hviler --> Traener : [restEndsAt nået] / vibrér
+  }
+  state "Pauset\n(runningSince = null)" as Pauset
+  state "Auto-stoppet\n(alle sæt afkrydset)" as AutoStop
+
+  [*] --> Koerer
+  Koerer --> Pauset : pause() / baseSeconds += tid
+  Pauset --> Koerer : resume()
+  Koerer --> AutoStop : updateItems()\n[alle sæt done] / restEndsAt = null
+  AutoStop --> Koerer : updateItems()\n[et sæt fjernes fra afkrydsning eller tilføjes]
+  AutoStop --> Koerer : resume()
+}
+
+IngenTraening --> Aktiv : start(routine)
+Aktiv --> IngenTraening : finish / finishWorkout() + discard()
+Aktiv --> IngenTraening : discard() [bekræftet]
+Aktiv --> IngenTraening : clearAll() (resetCount ændret)
+Aktiv --> Aktiv : start(andenRutine) [bekræftet]\n/ gammel træning kasseres
+
+note right of Aktiv
+  Tilstanden gemmes i AsyncStorage under
+  'calfs-and-cals/active-workout/v1', så den
+  overlever at appen lukkes. Tider er
+  vægur-tidsstempler, så timeren tæller
+  videre mens telefonen er låst.
+end note
+@enduml

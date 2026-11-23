@@ -1,0 +1,214 @@
+@startuml 08-designklassediagram
+title Designklassediagram – datamodel og stores (lib/)
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "lib/store.tsx" {
+  class Data <<type>> {
+    profile : Profile
+    foods : Food[]
+    workouts : Workout[]
+    routines : Routine[]
+    sessions : Session[]
+    savedFoods : SavedFood[]
+    customCategories : string[]
+    customExercises : string[]
+    exerciseTargets : Record<string, number>
+    weights : Record<DateKey, number>
+    goals : Goals
+  }
+  class Profile <<type>> {
+    heightCm : number | null
+    sex : Sex | null
+    birthDate : DateKey | null
+    activity : ActivityLevel | null
+    targetDate : DateKey | null
+    startPage : Mode | null
+    startPageAsked : boolean
+  }
+  class Goals <<type>> {
+    dailyCalories : number | null
+    weeklyWorkouts : number | null
+    targetWeight : number | null
+  }
+  class Food <<type>> {
+    id : string
+    date : DateKey
+    name : string
+    kcal : number
+    at : number
+    grams? : number
+    protein? : number
+    fat? : number
+    carbs? : number
+  }
+  class SavedFood <<type>> {
+    id : string
+    name : string
+    category : string | null
+    barcode : string | null
+    kcal : number
+    protein : number | null
+    fat : number | null
+    carbs : number | null
+    at : number
+  }
+  abstract class Workout <<union>> {
+    id : string
+    date : DateKey
+    at : number
+    sessionId? : string
+  }
+  class StrengthSet <<type>> {
+    kind = 'strength'
+    exercise : string
+    reps : number
+    kg : number
+  }
+  class Cardio <<type>> {
+    kind = 'cardio'
+    activity : string
+    minutes : number | null
+    km : number | null
+  }
+  class Routine <<type>> {
+    id : string
+    name : string
+    exercises : RoutineExercise[]
+    updatedAt : number
+  }
+  abstract class RoutineExercise <<union>> {
+    id : string
+  }
+  class RoutineStrength <<type>> {
+    kind = 'strength'
+    exercise : string
+    sets : number | null
+    reps : number | null
+    kg : number | null
+  }
+  class RoutineCardio <<type>> {
+    kind = 'cardio'
+    activity : string
+    km : number | null
+    minutes : number | null
+  }
+  class Session <<type>> {
+    id : string
+    date : DateKey
+    routineId : string
+    routineName : string
+    finishedAt : number
+    seconds : number
+  }
+
+  class StoreProvider <<React context>> {
+    - data : Data
+    - resetCount : number
+    + addFood(date, kcal, name, macros?)
+    + removeFood(id)
+    + addSet(date, exercise, reps, kg)
+    + addCardio(date, activity, minutes, km)
+    + removeWorkout(id)
+    + saveRoutine(routine)
+    + removeRoutine(id)
+    + finishWorkout(session, entries)
+    + updateSession(id, session, entries)
+    + removeSession(id)
+    + addExercise(name) : boolean
+    + removeExercise(name)
+    + setExerciseTarget(exercise, kg)
+    + saveFood(food)
+    + updateSavedFood(id, patch)
+    + removeSavedFood(id)
+    + addCategory(name) : boolean
+    + removeCategory(name)
+    + setWeight(date, kg)
+    + setGoals(goals)
+    + setProfile(profile)
+    + clearAll()
+  }
+}
+
+package "lib/active-workout.tsx" {
+  class ActiveWorkout <<type>> {
+    routineId : string
+    routineName : string
+    items : Item[]
+    baseSeconds : number
+    runningSince : number | null
+    autoStoppedAt : number | null
+    restEndsAt : number | null
+  }
+  class Item <<union>> {
+    id : string
+    kind : 'strength' | 'cardio'
+    name : string
+    sets? : SetRow[]
+    km? / minutes? / done?
+  }
+  class ActiveWorkoutProvider <<React context>> {
+    - workout : ActiveWorkout | null
+    - restSeconds : number
+    + start(routine)
+    + discard()
+    + updateItems(fn)
+    + pause()
+    + resume()
+    + setElapsed(seconds)
+    + setRestSeconds(seconds)
+    + startRest()
+    + adjustRest(by)
+    + skipRest()
+  }
+}
+
+package "lib/food-lookup.ts" {
+  class Product <<type>> {
+    barcode : string
+    name : string
+    kcal : number
+    protein / fat / carbs : number | null
+  }
+  class FoodLookup <<module>> {
+    + lookupBarcode(barcode, signal) : Promise<LookupResult>
+    + portion(food, grams) : kcal & Macros
+  }
+}
+
+package "lib/body.ts + lib/target.ts" {
+  class Body <<module>> {
+    + bmi(kg, cm)
+    + bmr(sex, kg, cm, age)
+    + maintenanceCalories(...)
+    + caloriePlan(...)
+  }
+  class Target <<module>> {
+    + targetStatus(data, today) : TargetStatus
+  }
+}
+
+Data *-- "1" Profile
+Data *-- "1" Goals
+Data *-- "*" Food
+Data *-- "*" SavedFood
+Data *-- "*" Workout
+Data *-- "*" Routine
+Data *-- "*" Session
+Workout <|-- StrengthSet
+Workout <|-- Cardio
+Routine *-- "*" RoutineExercise
+RoutineExercise <|-- RoutineStrength
+RoutineExercise <|-- RoutineCardio
+Workout "*" ..> "0..1" Session : sessionId
+Session "*" ..> "1" Routine : routineId
+
+StoreProvider o-- "1" Data
+ActiveWorkoutProvider o-- "0..1" ActiveWorkout
+ActiveWorkout *-- "*" Item
+ActiveWorkoutProvider ..> StoreProvider : useStore() (resetCount)
+ActiveWorkout ..> Routine : oprettet fra
+FoodLookup ..> Product : returnerer
+Target ..> Body : bruger
+Target ..> Data : læser
+@enduml

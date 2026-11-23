@@ -1,0 +1,36 @@
+@startuml 03-ssd-scan-stregkode
+title SSD – UC2 Scan stregkode
+autonumber
+
+actor "Bruger" as U
+participant ":System" as S
+participant "Open Food Facts" as OFF <<system>>
+
+U -> S : åbnScanner(dato)
+alt kameratilladelse mangler
+  S --> U : bed om kameratilladelse
+  U -> S : givTilladelse()
+end
+U -> S : scanStregkode(stregkode)
+alt stregkoden findes blandt gemte fødevarer
+  S --> U : produkt med næring pr. 100 g
+else ikke gemt lokalt
+  S -> OFF : hentProdukt(stregkode)
+  OFF --> S : produktdata / 404
+  alt produkt fundet med kcal
+    S --> U : produkt med næring pr. 100 g
+  else ukendt stregkode eller ingen kcal
+    S --> U : "Ingen næringsdata fundet"
+  else netværksfejl
+    S --> U : "Kunne ikke kontakte databasen"
+  end
+end
+
+U -> S : angivGram(gram)
+S --> U : kcal og makroer for portionen
+opt bruger vil gemme fødevaren
+  U -> S : vælgGem(kategori)
+end
+U -> S : tilføj()
+S --> U : madregistrering vist på dagen
+@enduml

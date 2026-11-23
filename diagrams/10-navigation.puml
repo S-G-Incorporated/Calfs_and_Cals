@@ -1,0 +1,49 @@
+@startuml 10-navigation
+title Navigationsdiagram – skærme og ruter (Expo Router)
+hide empty description
+
+[*] --> Index
+state "index\nVælg: Træn / Kalorier" as Index
+
+state "train/ (Tabs)" as Train {
+  state "Routines\n(train/index)" as TRoutines
+  state "Progress\n(train/progress)" as TProgress
+  state "Goals\n(train/goals)" as TGoals
+}
+state "calories/ (Tabs)" as Cal {
+  state "Today\n(calories/index)" as CToday
+  state "Foods\n(calories/foods)" as CFoods
+  state "History\n(calories/history)" as CHistory
+  state "Progress\n(calories/progress)" as CProgress
+  state "Goals\n(calories/goals)" as CGoals
+}
+
+state "routine/[id]\nOpret/redigér rutine" as Routine
+state "workout/[id]\nAktiv træning" as Workout
+state "session/[id]\nRedigér træning" as Session
+state "day/[date]?mode=\nTidligere dag" as Day
+state "scan (modal)\nScan stregkode" as Scan
+state "profile" as Profile
+state "target\nMålvægt-plan" as Target
+
+Index --> Train : Train
+Index --> Cal : Track calories
+Index --> Train : [startPage = train]\nRedirect
+Index --> Cal : [startPage = calories]\nRedirect
+Train --> Cal : skift sektion (header)
+Cal --> Train : skift sektion (header)
+
+TRoutines --> Routine : New routine / redigér
+TRoutines --> Workout : Start
+TProgress --> Session : tryk på træning
+TProgress --> Day : tryk på dag
+CToday --> Scan : Scan
+CToday --> CFoods : gemte fødevarer
+CHistory --> Day : tryk på dag
+Train --> Profile : profilknap
+Cal --> Profile : profilknap
+Profile --> Target : målvægt
+
+state "MiniWorkoutBar\n(vises over tabs og stack)" as Mini
+Mini --> Workout : genoptag træning
+@enduml

@@ -1,0 +1,60 @@
+@startuml 09-arkitektur-lag
+title Arkitektur – lag og afhængigheder
+skinparam componentStyle rectangle
+
+package "Præsentation – src/app/ (Expo Router-ruter)" as App {
+  [_layout.tsx\n(Stack + providers)] as Root
+  [index.tsx\n(valg af sektion)] as Index
+  [train/*\n(Tabs)] as Train
+  [calories/*\n(Tabs)] as Cal
+  component "workout/[id]" as Workout
+  component "routine/[id]" as Routine
+  component "session/[id]" as Session
+  component "day/[date]" as Day
+  [scan] as Scan
+  [profile, target] as Profile
+}
+
+package "UI-komponenter – src/components/" as Comp {
+  [calorie-day, workout-day] as DayViews
+  [charts, progress-charts] as Charts
+  [history-list, workout-log, calendar] as Lists
+  [goals-form, target-plan, profile] as Forms
+  [section-tabs, mini-workout-bar] as Nav
+  [ui, dropdown, pickers] as UI
+}
+
+package "Domæne og tilstand – src/lib/" as Lib {
+  [store.tsx\nStoreProvider] as Store
+  [active-workout.tsx\nActiveWorkoutProvider] as AW
+  [body.ts, target.ts\n(beregninger)] as Calc
+  [workouts.ts, foods.ts, dates.ts] as Helpers
+  [food-lookup.ts] as Lookup
+  [theme.ts, mode.ts, confirm.ts] as Misc
+}
+
+package "Platform" {
+  database "AsyncStorage" as AS
+  [expo-camera] as Camera
+  [react-native-svg] as Svg
+}
+cloud "Open Food Facts API" as OFF
+
+App --> Comp
+App --> Lib
+Comp --> Lib
+Store --> AS : 'calfs-and-cals/v1'
+AW --> AS : '.../active-workout/v1'
+AW --> Store
+Lookup --> OFF : HTTPS GET
+Scan --> Camera
+Charts --> Svg
+Calc --> Helpers
+Store --> Helpers
+
+note bottom of Lib
+  Ren TypeScript-logik (body, target, workouts,
+  active-workout, store.normalize) er enhedstestet
+  med Jest i src/lib/__tests__/.
+end note
+@enduml

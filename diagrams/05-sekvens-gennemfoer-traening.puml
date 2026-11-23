@@ -1,0 +1,46 @@
+@startuml 05-sekvens-gennemfoer-traening
+title Sekvensdiagram (design) – UC6 Gennemfør træning
+autonumber
+
+actor Bruger
+participant "RoutinesScreen\n(app/train/index.tsx)" as List
+participant "WorkoutScreen\n(app/workout/[id].tsx)" as WS
+participant "ActiveWorkoutProvider\n(lib/active-workout.tsx)" as AW
+participant "StoreProvider\n(lib/store.tsx)" as Store
+database "AsyncStorage" as AS
+
+Bruger -> List : tryk "Start" på rutine
+alt en anden træning er i gang
+  List --> Bruger : confirm("Start a new workout?")
+  Bruger -> List : "Discard and start"
+end
+List -> AW : start(routine)
+AW -> AW : items = exercises.map(itemFromExercise)\nrunningSince = now
+AW ->> AS : setItem('.../active-workout/v1')
+List -> WS : router.push('/workout/[id]')
+
+loop for hvert sæt
+  Bruger -> WS : ret reps/kg og afkryds sæt
+  WS -> AW : updateItems(fn)
+  AW -> AW : syncAutoStop(w, now)
+  AW ->> AS : gem aktiv træning
+  opt hvile-timer slået til
+    WS -> AW : startRest()
+    AW -> AW : restEndsAt = now + restSeconds
+    ... hvileperioden udløber ...
+    AW -> AW : Vibration.vibrate()
+  end
+end
+
+Bruger -> WS : tryk "Finish"
+WS -> WS : entries = afkrydsede sæt og cardio
+WS -> Store : finishWorkout(session, entries)
+Store -> Store : toSession(newId(), input)\ntoWorkouts(session, entries)
+Store ->> AS : setItem('calfs-and-cals/v1')
+opt rutinen er ændret og "gem i rutine" valgt
+  WS -> Store : saveRoutine({id, name, exercises})
+end
+WS -> AW : discard()
+AW ->> AS : workout = null
+WS -> List : router.back()
+@enduml

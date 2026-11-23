@@ -1,0 +1,36 @@
+@startuml 11-deployment
+title Deploymentdiagram
+skinparam nodesep 40
+
+node "Brugerens telefon\n(iOS / Android)" as Phone {
+  node "Calfs & Cals\n(React Native / Expo SDK 58)" as App {
+    artifact "JS-bundle\n(Hermes)" as Bundle
+  }
+  database "AsyncStorage\n(lokal nøgle/værdi)" as AS {
+    file "calfs-and-cals/v1\n(Data som JSON)" as D1
+    file "calfs-and-cals/active-workout/v1" as D2
+  }
+  node "Kamera" as Cam
+}
+
+cloud "Internet" {
+  node "world.openfoodfacts.org" as OFF {
+    component "Product API v2" as API
+  }
+}
+
+node "GitHub" as GH {
+  component "GitHub Actions\n(test + expo export)" as CI
+  artifact "app-build-{sha}\n(dist/)" as Dist
+}
+
+App --> AS : læs/skriv
+App --> Cam : stregkodescanning
+App --> API : HTTPS GET /api/v2/product/{stregkode}.json\n(kun stregkoden sendes)
+CI --> Dist : upload artifact
+
+note bottom of Phone
+  Ingen login og ingen egen server:
+  alle brugerdata bliver på telefonen.
+end note
+@enduml

@@ -1,0 +1,53 @@
+@startuml 01-use-case
+title Calfs & Cals – Use case-diagram
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+
+actor "Bruger" as User
+actor "Open Food Facts" as OFF <<system>>
+
+rectangle "Calfs & Cals (app på telefonen)" {
+  package "Kalorier" {
+    usecase "UC1 Registrér mad (kcal)" as UC1
+    usecase "UC2 Scan stregkode" as UC2
+    usecase "UC3 Administrér gemte fødevarer" as UC3
+    usecase "Gem fødevare" as UC3a
+    usecase "Se kaloriehistorik" as UC4
+  }
+  package "Træning" {
+    usecase "UC5 Opret/redigér rutine" as UC5
+    usecase "UC6 Gennemfør træning" as UC6
+    usecase "UC7 Redigér gennemført træning" as UC7
+    usecase "Brug hvile-timer" as UC6a
+  }
+  package "Fælles" {
+    usecase "UC8 Log vægt" as UC8
+    usecase "UC9 Sæt mål" as UC9
+    usecase "UC10 Se fremskridt" as UC10
+    usecase "UC11 Redigér profil" as UC11
+    usecase "UC12 Se plan for målvægt" as UC12
+    usecase "UC13 Slet alle data" as UC13
+  }
+}
+
+User --> UC1
+User --> UC2
+User --> UC3
+User --> UC4
+User --> UC5
+User --> UC6
+User --> UC7
+User --> UC8
+User --> UC9
+User --> UC10
+User --> UC11
+User --> UC12
+User --> UC13
+
+UC2 ..> UC1 : <<include>>
+UC2 ..> UC3a : <<extend>>\n[vælger "Save to my foods"]
+UC3 ..> UC3a : <<include>>
+UC6a ..> UC6 : <<extend>>
+UC2 --> OFF : slå stregkode op
+@enduml
