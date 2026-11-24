@@ -11,11 +11,12 @@ import { trainingDays } from '@/lib/workouts';
 import { CalorieLog } from './calorie-log';
 import { BarChart, LineChart } from './charts';
 import { Card, Muted } from './ui';
+import { WeightInputCard } from './weight-input';
 import { WorkoutLog } from './workout-log';
 
 /** Weeks shown in the training chart; every week is listed on request below it. */
 const CHART_WEEKS = 8;
-/** Days shown in the calorie and weight charts; older days can be loaded in the list below. */
+/** Days shown in the calorie and weight charts; any day can be picked in the calendar below. */
 const CHART_DAYS = 30;
 
 /** Charts for one section: workouts per week, or calories per day and weight. */
@@ -23,7 +24,10 @@ export function ProgressCharts({ mode }: { mode: Mode }) {
   const today = useToday();
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag">
       {mode === 'train' ? (
         <>
           <WorkoutsCard weekCount={CHART_WEEKS} />
@@ -32,8 +36,10 @@ export function ProgressCharts({ mode }: { mode: Mode }) {
       ) : (
         <>
           <CaloriesCard dayCount={CHART_DAYS} />
+          {/* Keyed by date so the input resets when the day rolls over. */}
+          <WeightInputCard key={today} date={today} title="Today's weight" />
           <WeightCard dayCount={CHART_DAYS} />
-          <CalorieLog days={CHART_DAYS} />
+          <CalorieLog />
         </>
       )}
     </ScrollView>

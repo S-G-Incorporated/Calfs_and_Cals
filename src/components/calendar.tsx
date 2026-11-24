@@ -16,17 +16,22 @@ import { useTheme } from '@/lib/theme';
 const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 /**
- * A month calendar for picking one day. Days before `min` can't be picked. Opens on the month
- * of the selected day, or of `min` when nothing is selected.
+ * A month calendar for picking one day. Days before `min` or after `max` can't be picked. Opens
+ * on the month of the selected day, or of `min` when nothing is selected. `marks` puts a small
+ * coloured dot under a day, e.g. to show that something was logged on it.
  */
 export function Calendar({
   value,
   min,
+  max,
+  marks,
   color,
   onChange,
 }: {
   value: DateKey | null;
   min?: DateKey;
+  max?: DateKey;
+  marks?: ReadonlyMap<DateKey, string>;
   color: string;
   onChange: (date: DateKey) => void;
 }) {
@@ -45,6 +50,7 @@ export function Calendar({
   while (cells.length % 7 !== 0) cells.push(null);
 
   const canGoBack = min === undefined || monthStart(min) < month;
+  const canGoForward = max === undefined || month < monthStart(max);
 
   return (
     <View style={styles.wrap}>
@@ -61,10 +67,11 @@ export function Calendar({
         <Text style={[styles.month, { color: t.text }]}>{formatMonth(month)}</Text>
         <Pressable
           onPress={() => setMonth(monthStart(month, 1))}
+          disabled={!canGoForward}
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel="Next month"
-          style={({ pressed }) => [styles.arrow, { opacity: pressed ? 0.5 : 1 }]}>
+          style={({ pressed }) => [styles.arrow, { opacity: !canGoForward ? 0.25 : pressed ? 0.5 : 1 }]}>
           <Ionicons name="chevron-forward" size={22} color={t.text} />
         </Pressable>
       </View>
@@ -77,7 +84,8 @@ export function Calendar({
         ))}
         {cells.map((day, i) => {
           if (day === null) return <View key={`e${i}`} style={styles.cell} />;
-          const disabled = min !== undefined && day < min;
+          const disabled = (min !== undefined && day < min) || (max !== undefined && day > max);
+          const mark = marks?.get(day);
           const selected = day === value;
           const isToday = day === today;
           return (
@@ -102,6 +110,9 @@ export function Calendar({
                   ]}>
                   {fromKey(day).getDate()}
                 </Text>
+                {mark ? (
+                  <View style={[styles.dot, { backgroundColor: selected ? t.onAccent : mark }]} />
+                ) : null}
               </Pressable>
             </View>
           );
@@ -129,4 +140,5 @@ const styles = StyleSheet.create({
   },
   dayLabel: { fontSize: 15, fontVariant: ['tabular-nums'] },
   dayLabelSelected: { fontWeight: '800' },
+  dot: { position: 'absolute', bottom: 5, width: 5, height: 5, borderRadius: 2.5 },
 });

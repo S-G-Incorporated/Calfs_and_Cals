@@ -3,84 +3,88 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { addDays, type DateKey, formatRelative, useToday } from '@/lib/dates';
-import { useStore } from '@/lib/store';
+import { type DateKey, formatRelative, useToday } from '@/lib/dates';
+import { sumKcal, useStore } from '@/lib/store';
 import { useTheme } from '@/lib/theme';
 
+import { Calendar } from './calendar';
 import { Card, Muted } from './ui';
 
-/** How many extra days each tap on "Show older days" adds. */
-const PAGE = 30;
-
 /**
- * Every day from today back to `days` days ago, newest first, with the calories and weight logged
- * that day. Empty days are listed too so a forgotten day can be opened and filled in.
+ * A month calendar of the days logged so far. Days with food or weight get a dot (red when over
+ * the calorie goal). Picking a day shows what was logged, and the day can be opened to edit it.
  */
-export function CalorieLog({ days }: { days: number }) {
+export function CalorieLog() {
   const t = useTheme();
   const today = useToday();
   const { data } = useStore();
-  const [extra, setExtra] = useState(0);
+  const [selected, setSelected] = useState<DateKey>(today);
 
+  const goal = data.goals.dailyCalories;
   const kcalByDay = new Map<DateKey, number>();
   for (const f of data.foods) kcalByDay.set(f.date, (kcalByDay.get(f.date) ?? 0) + f.kcal);
-  const firstLogged = [...kcalByDay.keys(), ...Object.keys(data.weights)].sort()[0] ?? today;
 
-  const from = addDays(today, -(days + extra - 1));
-  const dates: DateKey[] = [];
-  for (let date = today; date >= from; date = addDays(date, -1)) dates.push(date);
-  const hasOlder = firstLogged < from;
-  const goal = data.goals.dailyCalories;
+  const marks = new Map<DateKey, string>();
+  for (const date of Object.keys(data.weights)) marks.set(date, t.weight);
+  for (const [date, kcal] of kcalByDay) marks.set(date, goal !== null && kcal > goal ? t.bad : t.calories);
+
+  const foods = data.foods.filter((f) => f.date === selected);
+  const kcal = sumKcal(foods);
+  const weight = data.weights[selected] ?? null;
+  const label = formatRelative(selected, today);
 
   return (
-    <Card title="Days">
-      {dates.map((date, i) => {
-        const kcal = kcalByDay.get(date) ?? 0;
-        const weight = data.weights[date] ?? null;
-        const label = formatRelative(date, today);
-        return (
-          <View
-            key={date}
-            style={[styles.row, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderColor: t.border }]}>
-            <View style={styles.text}>
-              <Text style={[styles.date, { color: t.text }]}>{label}</Text>
-              {kcal === 0 && weight === null ? (
-                <Muted>Nothing logged</Muted>
-              ) : (
-                <View style={styles.stats}>
-                  {kcal > 0 ? (
-                    <Stat
-                      icon="restaurant"
-                      color={goal !== null && kcal > goal ? t.bad : t.calories}
-                      text={`${kcal.toLocaleString()} kcal`}
-                    />
-                  ) : null}
-                  {weight !== null ? <Stat icon="scale" color={t.weight} text={`${weight} kg`} /> : null}
-                </View>
-              )}
+    <Card title="Pick a day">
+      <Calendar value={selected} max={today} marks={marks} color={t.calories} onChange={setSelected} />
+
+      <View style={[styles.legend, { borderColor: t.border }]}>
+        <Dot color={t.calories} text="Food logged" />
+        {goal !== null ? <Dot color={t.bad} text="Over goal" /> : null}
+        <Dot color={t.weight} text="Weight only" />
+      </View>
+
+      <View style={[styles.day, { backgroundColor: t.field }]}>
+        <View style={styles.dayText}>
+          <Text style={[styles.dayLabel, { color: t.text }]}>{label}</Text>
+          {foods.length === 0 && weight === null ? (
+            <Muted>Nothing logged</Muted>
+          ) : (
+            <View style={styles.stats}>
+              {foods.length > 0 ? (
+                <Stat
+                  icon="restaurant"
+                  color={goal !== null && kcal > goal ? t.bad : t.calories}
+                  text={`${kcal.toLocaleString()} kcal · ${foods.length} ${foods.length === 1 ? 'item' : 'items'}`}
+                />
+              ) : null}
+              {weight !== null ? <Stat icon="scale" color={t.weight} text={`${weight} kg`} /> : null}
             </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Edit ${label}`}
-              hitSlop={6}
-              onPress={() => router.push({ pathname: '/day/[date]', params: { date, mode: 'calories' } })}
-              style={({ pressed }) => [styles.edit, { backgroundColor: t.field, opacity: pressed ? 0.6 : 1 }]}>
-              <Ionicons name="create-outline" size={16} color={t.text} />
-              <Text style={[styles.editLabel, { color: t.text }]}>Edit</Text>
-            </Pressable>
-          </View>
-        );
-      })}
-      {hasOlder ? (
+          )}
+        </View>
         <Pressable
           accessibilityRole="button"
-          onPress={() => setExtra((e) => e + PAGE)}
-          style={({ pressed }) => [styles.more, { backgroundColor: t.field, opacity: pressed ? 0.6 : 1 }]}>
-          <Ionicons name="chevron-down" size={18} color={t.text} />
-          <Text style={[styles.editLabel, { color: t.text }]}>Show older days</Text>
+          accessibilityLabel={`Open ${label}`}
+          hitSlop={6}
+          onPress={() =>
+            selected === today
+              ? router.push('/calories')
+              : router.push({ pathname: '/day/[date]', params: { date: selected, mode: 'calories' } })
+          }
+          style={({ pressed }) => [styles.open, { backgroundColor: t.calories, opacity: pressed ? 0.7 : 1 }]}>
+          <Text style={[styles.openLabel, { color: t.onAccent }]}>Open</Text>
+          <Ionicons name="chevron-forward" size={16} color={t.onAccent} />
         </Pressable>
-      ) : null}
+      </View>
     </Card>
+  );
+}
+
+function Dot({ color, text }: { color: string; text: string }) {
+  return (
+    <View style={styles.stat}>
+      <View style={[styles.dot, { backgroundColor: color }]} />
+      <Muted>{text}</Muted>
+    </View>
   );
 }
 
@@ -95,27 +99,21 @@ function Stat({ icon, color, text }: { icon: keyof typeof Ionicons.glyphMap; col
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 12 },
-  text: { flex: 1, gap: 2 },
-  date: { fontSize: 16, fontWeight: '700' },
+  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  day: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 12, padding: 12 },
+  dayText: { flex: 1, gap: 2 },
+  dayLabel: { fontSize: 16, fontWeight: '700' },
   stats: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
   stat: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   detail: { fontSize: 14, fontVariant: ['tabular-nums'] },
-  edit: {
+  open: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    height: 36,
+    gap: 2,
+    paddingHorizontal: 14,
+    height: 40,
     borderRadius: 10,
   },
-  editLabel: { fontSize: 14, fontWeight: '600' },
-  more: {
-    height: 44,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
+  openLabel: { fontSize: 15, fontWeight: '700' },
 });
