@@ -379,7 +379,7 @@ function SavedFoodsCard({ date }: { date: DateKey }) {
 
           <Pressable
             accessibilityRole="button"
-            onPress={() => router.push('/calories/foods')}
+            onPress={() => router.push({ pathname: '/calories/foods', params: { from: 'today' } })}
             style={({ pressed }) => [styles.link, { opacity: pressed ? 0.6 : 1 }]}>
             <Text style={[styles.linkLabel, { color: t.calories }]}>
               {matches.length > shown.length ? `See all ${data.savedFoods.length} saved foods` : 'Manage saved foods'}
