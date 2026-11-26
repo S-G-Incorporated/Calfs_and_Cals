@@ -17,8 +17,8 @@ const icon = (name: IconName) =>
     return <Ionicons name={name} color={typeof color === 'string' ? color : undefined} size={size} />;
   };
 
-/** Returns to the launch screen so the other section can be opened. */
-function SwitchButton() {
+/** Returns to the launch screen so the other section can be opened. Also used by screens that set their own header. */
+export function SwitchButton() {
   const t = useTheme();
   return (
     <Pressable
